@@ -71,3 +71,29 @@ create policy "transfers_staff_update" on public.transfers
 --     Events: INSERT
 --     URL: https://<your-project-ref>.supabase.co/functions/v1/notify-applicant
 -- =====================================================================
+
+-- =====================================================================
+-- Firm settings (staff configure once, auto-populates cover letters)
+-- =====================================================================
+create table if not exists public.firm_settings (
+  id uuid primary key default gen_random_uuid(),
+  firm_name text,
+  firm_address text,
+  firm_city_state_zip text,
+  firm_phone text,
+  firm_email text,
+  firm_website text,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id)
+);
+
+alter table public.firm_settings enable row level security;
+
+-- Only staff can read or write firm settings
+drop policy if exists "firm_settings_staff" on public.firm_settings;
+create policy "firm_settings_staff" on public.firm_settings
+  for all using (public.is_staff())
+  with check (public.is_staff());
+
+-- Insert a default empty row
+insert into public.firm_settings (firm_name) values ('') on conflict do nothing;

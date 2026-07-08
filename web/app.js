@@ -40,6 +40,8 @@ function route() {
   if (hash.startsWith('#/dashboard'))    return renderDashboard();
   if (hash.startsWith('#/application/')) return renderApplication(hash.split('/')[2]);
   if (hash.startsWith('#/staff'))        return renderStaff();
+  if (hash.startsWith('#/formview/'))    return renderFormViewRoute(hash.split('/')[2]);
+  if (hash.startsWith('#/settings'))     return renderSettingsRoute();
   return renderHome();
 }
 window.addEventListener('hashchange', route);
@@ -95,7 +97,7 @@ function shell(pageHtml, opts = {}) {
   const isStaff = currentProfile && currentProfile.role !== 'applicant';
   const nav = currentUser
     ? `<span class="nav-name">${esc(userName())}</span>
-       ${isStaff ? `<a href="#/staff">Staff view</a>` : ''}
+       ${isStaff ? `<a href="#/staff">Staff view</a><a href="#/settings">Settings</a>` : ''}
        <a href="#/dashboard">My applications</a>
        <button onclick="signOut()">Sign out</button>`
     : `<a href="#/login">Sign in</a><a href="#/signup" style="background:var(--cyan);color:var(--navy-dark);border-color:var(--cyan);font-weight:700;">Get started</a>`;
@@ -385,6 +387,36 @@ async function renderStaff() {
       </table>
     </div>
   `);
+}
+
+/* --------------------------------------------------------------------------
+   Form view and settings routes
+-------------------------------------------------------------------------- */
+async function renderFormViewRoute(id) {
+  if (!currentUser && id !== 'demo') return go('#/login');
+  if (typeof window.renderFormView === 'function') {
+    await window.renderFormView(id);
+  } else {
+    shell('<div class="page-wrap"><div class="alert alert-error">Form view failed to load.</div></div>');
+  }
+}
+
+async function renderSettingsRoute() {
+  if (!currentUser) return go('#/login');
+  if (!isStaff()) { shell('<div class="page-wrap"><div class="alert alert-error">Staff only.</div></div>'); return; }
+  const firmHtml = typeof window.renderFirmSettings === 'function' ? await window.renderFirmSettings() : '';
+  shell(`
+    <div class="page-header"><div class="page-header-inner">
+      <div class="eyebrow">Settings</div>
+      <h1>Firm settings</h1>
+      <p>This information appears on all cover letters and PDF packets.</p>
+    </div></div>
+    <div class="page-wrap medium">${firmHtml}</div>
+  `, 'Settings');
+}
+
+function isStaff() {
+  return currentProfile && (currentProfile.role === 'staff' || currentProfile.role === 'admin');
 }
 
 /* --------------------------------------------------------------------------
