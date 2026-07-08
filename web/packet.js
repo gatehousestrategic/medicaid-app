@@ -47,6 +47,25 @@
      Load all data for a given application
   ------------------------------------------------------------------------ */
   async function loadAppData(appId) {
+    // For demo mode, pull from the in-memory data that questions.js populated
+    if (appId === 'demo' && window._demoData) {
+      const d = window._demoData;
+      const app = d.APP || {};
+      const checklist = {};
+      // Build checklist from what's in CHECKLIST global if questions.js exposed it
+      if (window._currentChecklist) Object.assign(checklist, window._currentChecklist);
+      const st = app.state ? getStateData(app.state) : null;
+      return {
+        app, st,
+        applicant: d.APPL || {},
+        spouse: d.SPOU || {},
+        assets: (d.ASSETS || []).map(a => ({...a, asset_type: a.asset_type||'other', owner: a.owner||'applicant'})),
+        income: d.INCOME || [],
+        transfers: d.TRANSFERS || [],
+        checklist,
+        docs: []
+      };
+    }
     const [appRes, peopleRes, assetsRes, incRes, transRes, checklistRes, docsRes] = await Promise.all([
       sb.from('applications').select('*').eq('id', appId).single(),
       sb.from('application_people').select('*').eq('application_id', appId),
@@ -82,172 +101,236 @@
   ======================================================================== */
 
   window.renderFormView = async function(appId) {
-    shell(`<div class="spinner-wrap">Loading form view…</div>`, 'Form view');
+    shell(`<div class="spinner-wrap">Loading…</div>`, 'Form view');
     const { app, applicant, spouse, assets, income, transfers, checklist, docs, st } = await loadAppData(appId);
     const appName = [applicant.first_name, applicant.last_name].filter(Boolean).join(' ') || 'Application';
+    const totalAssets = assets.reduce((s,a)=>s+(parseFloat(a.value)||0),0);
+    const countable   = assets.filter(a=>!a.is_exempt).reduce((s,a)=>s+(parseFloat(a.value)||0),0);
+    const totalIncome = income.reduce((s,i)=>s+(parseFloat(i.amount)||0)*(FREQ_FACTORS[i.frequency]||1),0);
+    const totalUV     = transfers.reduce((s,t)=>s+(parseFloat(t.uncompensated_value)||0),0);
+    const doneCount    = Object.values(checklist).filter(v=>v==="done").length;
+    const missingCount = Object.values(checklist).filter(v=>v!=="done").length;
 
-    function field(label, id, val, type='text') {
-      return `<div class="fv-field">
-        <label class="fv-label">${esc(label)}</label>
-        <input type="${type}" class="fv-input" data-id="${id}" value="${esc(val||'')}" onchange="fvSave('${appId}','${id}',this.value)">
-      </div>`;
+    function disp(v) { return esc(v||"\u2014"); }
+    function inp(label, dbKey, v, type) {
+      type = type||"text";
+      return `<div class="fv-col"><div class="fv-label">${esc(label)}</div><input type="${type}" class="fv-input" value="${esc(v||"")}" onchange="fvSave("${appId}","${dbKey}",this.value)"></div>`;
     }
-    function select(label, id, val, opts) {
-      return `<div class="fv-field">
-        <label class="fv-label">${esc(label)}</label>
-        <select class="fv-input" data-id="${id}" onchange="fvSave('${appId}','${id}',this.value)">
-          ${opts.map(o => `<option value="${esc(o.v)}" ${val===o.v?'selected':''}>${esc(o.l)}</option>`).join('')}
-        </select>
-      </div>`;
+    function ro(label, v) {
+      return `<div class="fv-col"><div class="fv-label">${esc(label)}</div><div class="fv-value">${disp(v)}</div></div>`;
     }
-    function section(title, content) {
-      return `<div class="fv-section">
-        <div class="fv-section-title">${esc(title)}</div>
-        <div class="fv-section-body">${content}</div>
-      </div>`;
+    function sh(title, meta) {
+      return `<div class="fv-sh"><span>${esc(title)}</span>${meta?`<span class="fv-sh-meta">${meta}</span>`:""}</div>`;
     }
-    function row(...fields) { return `<div class="fv-row">${fields.join('')}</div>`; }
+    function adlBadge(v) {
+      const cls = v==="Fully dependent"?"fv-bad":v==="Needs assistance"?"fv-warn":"fv-ok";
+      return `<span class="fv-adl-pill ${cls}">${disp(v)}</span>`;
+    }
 
-    const totalAssets = assets.reduce((s,a) => s+(parseFloat(a.value)||0), 0);
-    const countable   = assets.filter(a => !a.is_exempt).reduce((s,a) => s+(parseFloat(a.value)||0), 0);
-    const totalIncome = income.reduce((s,i) => s+(parseFloat(i.amount)||0)*(FREQ_FACTORS[i.frequency]||1), 0);
-    const totalUV     = transfers.reduce((s,t) => s+(parseFloat(t.uncompensated_value)||0), 0);
+    const adlFields = ["adl_bathing","adl_dressing","adl_eating","adl_transferring","adl_toileting","adl_continence"];
+    const adlLabels = ["Bathing","Dressing","Eating","Transferring","Toileting","Continence"];
+    const needsHelpCount = adlFields.filter(k=>applicant[k] && applicant[k]!=="Independent").length;
 
     shell(`
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+      <style>
+        .fv-tb{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;}
+        .fv-tb h2{margin:0 0 4px;font-size:1.25rem;}
+        .fv-tb-sub{font-size:0.82rem;color:var(--ink-faint);}
+        .fv-stats{display:flex;gap:0;background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:18px;overflow:hidden;}
+        .fv-stat{flex:1;text-align:center;padding:14px 8px;border-right:1px solid var(--border);}
+        .fv-stat:last-child{border-right:none;}
+        .fv-stat-n{font-size:1.5rem;font-weight:800;line-height:1;}
+        .fv-stat-l{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-top:3px;}
+        .fv-sec{background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden;}
+        .fv-sh{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;background:#f8f8f8;border-bottom:1px solid var(--border);font-weight:700;font-size:0.875rem;}
+        .fv-sh-meta{font-size:0.78rem;font-weight:600;color:var(--navy);}
+        .fv-body{padding:16px;}
+        .fv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:14px;}
+        .fv-grid:last-child{margin-bottom:0;}
+        .fv-col{display:flex;flex-direction:column;gap:4px;}
+        .fv-label{font-size:0.72rem;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.04em;}
+        .fv-value{font-size:0.925rem;padding:2px 0;color:var(--ink);}
+        .fv-input{font-size:0.9rem;padding:7px 9px;border:1.5px solid #ccc;border-radius:6px;font-family:inherit;color:var(--ink);background:#fafafa;}
+        .fv-input:focus{outline:none;border-color:var(--navy);background:#fff;}
+        .fv-table{width:100%;border-collapse:collapse;font-size:0.85rem;}
+        .fv-table th{text-align:left;padding:8px 12px;background:#f4f4f4;border-bottom:2px solid #ddd;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#666;}
+        .fv-table td{padding:8px 12px;border-bottom:1px solid #f0f0f0;}
+        .fv-table .fv-tot td{font-weight:700;border-top:2px solid var(--navy);background:#f0f4ff;}
+        .fv-adl-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f0;font-size:0.9rem;}
+        .fv-adl-row:last-child{border-bottom:none;}
+        .fv-adl-pill{font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:12px;}
+        .fv-ok{background:#ecf3ec;color:#2b5b33;}
+        .fv-warn{background:#faf3d1;color:#5c4809;}
+        .fv-bad{background:#f4e3db;color:#6f3331;}
+        .fv-exempt{display:inline-block;background:#ecf3ec;color:#2b5b33;font-size:0.7rem;font-weight:700;padding:2px 7px;border-radius:10px;}
+        .fv-flag{display:inline-block;background:#f4e3db;color:#6f3331;font-size:0.7rem;font-weight:700;padding:2px 7px;border-radius:10px;}
+        .fv-tc{border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;}
+        .fv-tc.fv-tc-flag{border-color:#e0a898;background:#fff8f8;}
+        .fv-doc{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;}
+        .fv-doc:last-child{border-bottom:none;}
+        @media(max-width:600px){.fv-grid{grid-template-columns:1fr;}.fv-stats{flex-wrap:wrap;}}
+      </style>
+
+      <div class="fv-tb">
         <div>
-          <h2 style="margin:0;">${esc(appName)}</h2>
-          <div style="font-size:0.85rem;color:var(--ink-faint);">${st?esc(st.name):'—'} · Form view</div>
+          <h2>${esc(appName)}</h2>
+          <div class="fv-tb-sub">${st?esc(st.name):"\u2014"} \u00b7 Form view</div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" onclick="window.location.hash='#/application/${appId}'">← Question view</button>
-          <button class="btn btn-secondary btn-sm" onclick="printChecklist('${appId}')">🖨 Print checklist</button>
-          <button class="btn btn-primary btn-sm" onclick="exportPacketPDF('${appId}')">📄 Export packet PDF</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="go('#/application/${appId}')">\u2190 Question view</button>
+          <button class="btn btn-secondary btn-sm" onclick="printChecklist('${appId}')">\uD83D\uDDB4 Print checklist</button>
+          <button class="btn btn-primary btn-sm" onclick="exportPacketPDF('${appId}')">\uD83D\uDCC4 Export PDF</button>
         </div>
       </div>
 
-      <style>
-        .fv-section { background:#fff; border:1px solid var(--border); border-radius:10px; margin-bottom:16px; overflow:hidden; }
-        .fv-section-title { background:#f0f0f0; padding:12px 18px; font-weight:700; font-size:0.9rem; border-bottom:1px solid var(--border); }
-        .fv-section-body { padding:18px; }
-        .fv-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
-        .fv-field { display:flex; flex-direction:column; gap:5px; }
-        .fv-label { font-size:0.8rem; font-weight:600; color:var(--ink-soft); }
-        .fv-input { font-size:0.9rem; padding:8px 10px; border:1.5px solid #ccc; border-radius:6px; font-family:inherit; }
-        .fv-input:focus { outline:none; border-color:var(--navy); }
-        .fv-saved { color:var(--good-ink); font-size:0.75rem; margin-left:8px; }
-        .fv-table { width:100%; border-collapse:collapse; font-size:0.875rem; }
-        .fv-table th { text-align:left; padding:7px 10px; background:#f8f8f8; border-bottom:2px solid var(--border); font-size:0.75rem; text-transform:uppercase; color:var(--ink-faint); }
-        .fv-table td { padding:7px 10px; border-bottom:1px solid #f0f0f0; }
-        .fv-total { font-weight:700; border-top:2px solid var(--navy)!important; }
-      </style>
+      <div class="fv-stats">
+        <div class="fv-stat"><div class="fv-stat-n" style="color:var(--good-ink);">${doneCount}</div><div class="fv-stat-l" style="color:var(--good-ink);">\u2705 Done</div></div>
+        <div class="fv-stat"><div class="fv-stat-n" style="color:${missingCount>0?"var(--error-ink)":"var(--warn-ink)"};">${missingCount}</div><div class="fv-stat-l" style="color:${missingCount>0?"var(--error-ink)":"var(--warn-ink)"};">${missingCount>0?"\uD83D\uDD34 Needed":"\uD83D\uDFE1 Pending"}</div></div>
+        <div class="fv-stat"><div class="fv-stat-n" style="color:var(--navy);">${assets.length}</div><div class="fv-stat-l" style="color:var(--navy);">Assets</div></div>
+        <div class="fv-stat"><div class="fv-stat-n" style="color:var(--navy);">${income.length}</div><div class="fv-stat-l" style="color:var(--navy);">Income</div></div>
+        <div class="fv-stat"><div class="fv-stat-n" style="color:${totalUV>0?"var(--error-ink)":"var(--ink-faint)"};">${transfers.length}</div><div class="fv-stat-l" style="color:${totalUV>0?"var(--error-ink)":"var(--ink-faint)"};">Transfers${totalUV>0?" \u26A0":""}</div></div>
+        <div class="fv-stat"><div class="fv-stat-n" style="color:var(--ink-faint);">${docs.length}</div><div class="fv-stat-l" style="color:var(--ink-faint);">Docs</div></div>
+      </div>
 
-      ${section('Facility & Application', row(
-        field('State', 'app.state', app.state),
-        field('Facility name', 'app.facility_name', app.facility_name),
-        field('Admission date', 'app.facility_admission_date', app.facility_admission_date, 'date'),
-        select('Marital status', 'app.marital_status', app.marital_status, [{v:'single',l:'Single/widowed/divorced'},{v:'married',l:'Married'}])
-      ))}
+      <!-- Facility -->
+      <div class="fv-sec">
+        ${sh("Facility & Application")}
+        <div class="fv-body"><div class="fv-grid">
+          ${inp("State","app.state",app.state)}
+          ${inp("Facility name","app.facility_name",app.facility_name)}
+          ${inp("Admission date","app.facility_admission_date",app.facility_admission_date,"date")}
+          ${ro("Marital status",app.marital_status==="married"?"Married":"Single / widowed / divorced")}
+          ${ro("Level of care documented",app.level_of_care_documented?"Yes \u2714":"Pending")}
+          ${ro("Application status",app.status||"draft")}
+        </div></div>
+      </div>
 
-      ${section('Applicant', row(
-        field('First name', 'appl.first_name', applicant.first_name),
-        field('Middle name', 'appl.middle_name', applicant.middle_name),
-        field('Last name', 'appl.last_name', applicant.last_name),
-        field('Date of birth', 'appl.dob', applicant.dob, 'date'),
-        field('SSN last 4', 'appl.ssn_last4', applicant.ssn_last4),
-        field('Phone', 'appl.phone', applicant.phone, 'tel'),
-        field('Email', 'appl.email', applicant.email, 'email'),
-        field('Address', 'appl.address1', applicant.address1),
-        field('City', 'appl.city', applicant.city),
-        field('State', 'appl.state', applicant.state),
-        field('ZIP', 'appl.zip', applicant.zip),
-        field('Medicare #', 'appl.medicare_number', applicant.medicare_number),
-        field('Physician', 'appl.attending_physician', applicant.attending_physician),
-        field('Physician phone', 'appl.physician_phone', applicant.physician_phone),
-        field('Diagnosis', 'appl.primary_diagnosis', applicant.primary_diagnosis)
-      ))}
+      <!-- Applicant -->
+      <div class="fv-sec">
+        ${sh("Applicant",applicant.primary_diagnosis?esc(applicant.primary_diagnosis):"")}
+        <div class="fv-body">
+          <div class="fv-grid">
+            ${inp("First name","appl.first_name",applicant.first_name)}
+            ${inp("Middle name","appl.middle_name",applicant.middle_name)}
+            ${inp("Last name","appl.last_name",applicant.last_name)}
+            ${inp("Date of birth","appl.dob",applicant.dob,"date")}
+            ${ro("Age",applicant.dob?Math.floor((Date.now()-new Date(applicant.dob+"T00:00:00").getTime())/(365.25*24*3600*1000))+" years":"\u2014")}
+            ${ro("Sex",applicant.sex==="M"?"Male":applicant.sex==="F"?"Female":"\u2014")}
+            ${inp("SSN last 4","appl.ssn_last4",applicant.ssn_last4)}
+            ${ro("U.S. citizen",applicant.citizen===true?"Yes":applicant.citizen===false?"No":"\u2014")}
+          </div>
+          <div class="fv-grid">
+            ${inp("Phone","appl.phone",applicant.phone,"tel")}
+            ${inp("Email","appl.email",applicant.email,"email")}
+            ${inp("Street address","appl.address1",applicant.address1)}
+            ${inp("City","appl.city",applicant.city)}
+            ${inp("State","appl.state_field",applicant.state)}
+            ${inp("ZIP","appl.zip",applicant.zip)}
+            ${inp("Medicare #","appl.medicare_number",applicant.medicare_number)}
+            ${inp("Physician","appl.attending_physician",applicant.attending_physician)}
+            ${inp("Physician phone","appl.physician_phone",applicant.physician_phone,"tel")}
+            ${inp("Diagnosis","appl.primary_diagnosis",applicant.primary_diagnosis)}
+          </div>
+        </div>
+      </div>
 
-      ${app.marital_status === 'married' ? section('Community Spouse', row(
-        field('First name', 'spou.first_name', spouse.first_name),
-        field('Last name', 'spou.last_name', spouse.last_name),
-        field('Date of birth', 'spou.dob', spouse.dob, 'date'),
-        field('SSN last 4', 'spou.ssn_last4', spouse.ssn_last4),
-        field('Phone', 'spou.phone', spouse.phone, 'tel'),
-        field('Address', 'spou.address1', spouse.address1),
-        field('Medicare #', 'spou.medicare_number', spouse.medicare_number)
-      )) : ''}
+      <!-- ADLs -->
+      <div class="fv-sec">
+        ${sh("Activities of Daily Living",needsHelpCount>=2?`<span style="color:var(--good-ink);">\u2705 ${needsHelpCount}/6 need assistance \u2014 qualifies</span>`:`${needsHelpCount}/6 need assistance`)}
+        <div class="fv-body">
+          ${adlFields.map((k,i)=>`<div class="fv-adl-row"><span>${adlLabels[i]}</span>${adlBadge(applicant[k])}</div>`).join("")}
+        </div>
+      </div>
 
-      ${section(`Assets — Total: ${fmtMoney(totalAssets)} | Countable: ${fmtMoney(countable)}`, `
-        <table class="fv-table">
-          <tr><th>Owner</th><th>Type</th><th>Institution</th><th>Acct last 4</th><th>Value</th><th>Exempt</th></tr>
-          ${assets.map(a => `<tr>
-            <td>${esc(a.owner)}</td>
-            <td>${ASSET_LABELS[a.asset_type]||esc(a.asset_type)}</td>
-            <td>${esc(a.institution||a.description||'')}</td>
-            <td>${esc(a.account_last4||'')}</td>
-            <td>${fmtMoney(a.value)}</td>
-            <td>${a.is_exempt ? '✅ '+esc(a.exempt_reason||'Exempt') : '—'}</td>
-          </tr>`).join('') || '<tr><td colspan="6" style="color:#999;">No assets recorded</td></tr>'}
-          <tr class="fv-total"><td colspan="3">Total</td><td></td><td>${fmtMoney(totalAssets)}</td><td>Countable: ${fmtMoney(countable)}</td></tr>
-        </table>`)}
+      ${app.marital_status==="married"?`
+      <div class="fv-sec">
+        ${sh("Community Spouse",st?"CSRA up to $"+st.csra.toLocaleString()+" \u00b7 MMMNA $"+st.mmmna.toLocaleString()+"/mo":"")}
+        <div class="fv-body"><div class="fv-grid">
+          ${inp("First name","spou.first_name",spouse.first_name)}
+          ${inp("Last name","spou.last_name",spouse.last_name)}
+          ${inp("Date of birth","spou.dob",spouse.dob,"date")}
+          ${inp("SSN last 4","spou.ssn_last4",spouse.ssn_last4)}
+          ${inp("Phone","spou.phone",spouse.phone,"tel")}
+          ${inp("Address","spou.address1",spouse.address1)}
+          ${inp("Medicare #","spou.medicare_number",spouse.medicare_number)}
+        </div></div>
+      </div>`:""}
 
-      ${section(`Income — Total: ${fmtMoney(totalIncome)}/month`, `
-        <table class="fv-table">
-          <tr><th>Person</th><th>Type</th><th>Payer</th><th>Amount</th><th>Frequency</th><th>Monthly</th></tr>
-          ${income.map(i => `<tr>
-            <td>${esc(i.person)}</td>
-            <td>${INCOME_LABELS[i.income_type]||esc(i.income_type)}</td>
-            <td>${esc(i.payer||'')}</td>
-            <td>${fmtMoney(i.amount)}</td>
-            <td>${esc(i.frequency)}</td>
-            <td>${fmtMoney((parseFloat(i.amount)||0)*(FREQ_FACTORS[i.frequency]||1))}</td>
-          </tr>`).join('') || '<tr><td colspan="6" style="color:#999;">No income recorded</td></tr>'}
-          <tr class="fv-total"><td colspan="5">Total monthly income</td><td>${fmtMoney(totalIncome)}</td></tr>
-        </table>`)}
+      <!-- Assets -->
+      <div class="fv-sec">
+        ${sh("Assets","Total: "+fmtMoney(totalAssets)+" | Countable: "+fmtMoney(countable)+(st?" | Limit: "+(st.assetLimit?"$"+st.assetLimit.toLocaleString():"see notes"):""))}
+        <div style="overflow-x:auto;">
+          <table class="fv-table">
+            <tr><th>Owner</th><th>Type</th><th>Institution</th><th>Acct last 4</th><th>Value</th><th>Exempt?</th></tr>
+            ${assets.map(a=>`<tr>
+              <td style="text-transform:capitalize;">${esc(a.owner)}</td>
+              <td>${ASSET_LABELS[a.asset_type]||esc(a.asset_type)}</td>
+              <td>${esc(a.institution||a.description||"\u2014")}</td>
+              <td>${esc(a.account_last4||"\u2014")}</td>
+              <td>${fmtMoney(a.value)}</td>
+              <td>${a.is_exempt?`<span class="fv-exempt">Exempt \u2014 ${esc(a.exempt_reason||"yes")}</span>`:"\u2014"}</td>
+            </tr>`).join("")||"<tr><td colspan=\"6\" style=\"color:#999;padding:16px;\">No assets recorded yet</td></tr>"}
+            <tr class="fv-tot"><td colspan="3">Total</td><td></td><td>${fmtMoney(totalAssets)}</td><td>Countable: ${fmtMoney(countable)}</td></tr>
+          </table>
+        </div>
+      </div>
 
-      ${section(`Transfers (${app.state ? (getStateData(app.state)?.lookback||60) : 60}-month lookback)${totalUV > 0 ? ' — ⚠ Uncompensated: '+fmtMoney(totalUV) : ''}`, `
-        ${transfers.length ? transfers.map((t,i) => `
-          <div style="border:1px solid ${parseFloat(t.uncompensated_value)>0?'#e0a898':'var(--border)'};border-radius:8px;padding:14px;margin-bottom:10px;background:${parseFloat(t.uncompensated_value)>0?'#fff8f8':'#fff'};">
-            <div style="font-weight:700;margin-bottom:8px;">Transfer ${i+1}: ${esc(t.asset_description||'(no description)')}</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;font-size:0.875rem;">
-              <div><span style="color:#666;">Date:</span> ${fmtDate(t.transfer_date)}</div>
-              <div><span style="color:#666;">FMV:</span> ${fmtMoney(t.fair_market_value)}</div>
-              <div><span style="color:#666;">Received:</span> ${fmtMoney(t.amount_received)}</div>
-              <div><span style="color:#666;">Uncompensated:</span> <strong style="color:${parseFloat(t.uncompensated_value)>0?'#b50909':'inherit'}">${fmtMoney(t.uncompensated_value)}</strong></div>
-              <div><span style="color:#666;">Recipient:</span> ${esc(t.recipient_name||'—')}</div>
-              <div><span style="color:#666;">Relationship:</span> ${esc(t.recipient_relationship||'—')}</div>
-            </div>
-            ${t.notes ? `<div style="margin-top:8px;font-size:0.85rem;color:#666;">${esc(t.notes)}</div>` : ''}
-          </div>`).join('') : '<p style="color:#999;">No transfers recorded</p>'}
-      `)}
+      <!-- Income -->
+      <div class="fv-sec">
+        ${sh("Income","Total: "+fmtMoney(totalIncome)+"/month"+(st?" | Limit: "+(st.incomeLimit?"$"+st.incomeLimit.toLocaleString()+"/mo":"no hard cap"):""))}
+        <div style="overflow-x:auto;">
+          <table class="fv-table">
+            <tr><th>Person</th><th>Source</th><th>Payer</th><th>Amount</th><th>Frequency</th><th>Monthly</th></tr>
+            ${income.map(i=>`<tr>
+              <td style="text-transform:capitalize;">${esc(i.person)}</td>
+              <td>${INCOME_LABELS[i.income_type]||esc(i.income_type)}</td>
+              <td>${esc(i.payer||"\u2014")}</td>
+              <td>${fmtMoney(i.amount)}</td>
+              <td style="text-transform:capitalize;">${esc(i.frequency)}</td>
+              <td>${fmtMoney((parseFloat(i.amount)||0)*(FREQ_FACTORS[i.frequency]||1))}</td>
+            </tr>`).join("")||"<tr><td colspan=\"6\" style=\"color:#999;padding:16px;\">No income recorded yet</td></tr>"}
+            <tr class="fv-tot"><td colspan="5">Total monthly income</td><td>${fmtMoney(totalIncome)}</td></tr>
+          </table>
+        </div>
+      </div>
 
-      ${section(`Documents (${docs.length} uploaded)`, `
-        ${docs.length ? docs.map(d => `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;">
+      <!-- Transfers -->
+      <div class="fv-sec">
+        ${sh("Transfers \u2014 "+(st?st.lookback:60)+"-month lookback",totalUV>0?"\u26A0 "+fmtMoney(totalUV)+" uncompensated":"")}
+        <div class="fv-body">
+          ${transfers.length?transfers.map((t,i)=>{
+            const uv=parseFloat(t.uncompensated_value)||0;
+            return `<div class="fv-tc ${uv>0?"fv-tc-flag":""}">
+              <div style="font-weight:700;margin-bottom:8px;font-size:0.875rem;">Transfer ${i+1}: ${esc(t.asset_description||"(no description)")}</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;font-size:0.82rem;">
+                <div><span style="color:#666;">Date:</span> ${fmtDate(t.transfer_date)}</div>
+                <div><span style="color:#666;">FMV:</span> ${fmtMoney(t.fair_market_value)}</div>
+                <div><span style="color:#666;">Received:</span> ${fmtMoney(t.amount_received)}</div>
+                <div><span style="color:#666;">Uncompensated:</span> <strong style="color:${uv>0?"#b50909":"inherit"}">${fmtMoney(uv)}</strong></div>
+                <div><span style="color:#666;">To:</span> ${esc(t.recipient_name||"\u2014")}</div>
+                <div><span style="color:#666;">Relationship:</span> ${esc(t.recipient_relationship||"\u2014")}</div>
+              </div>
+              ${uv>0?`<div style="margin-top:8px;"><span class="fv-flag">\u26A0 Attorney review recommended</span></div>`:""}
+            </div>`;
+          }).join(""):"<p style=\"color:#999;margin:0;\">No transfers recorded yet</p>"}
+        </div>
+      </div>
+
+      <!-- Docs -->
+      <div class="fv-sec">
+        ${sh("Uploaded documents",docs.length+" file"+(docs.length===1?"":"s"))}
+        <div class="fv-body">
+          ${docs.length?docs.map(d=>`<div class="fv-doc">
             <div>
               <div style="font-weight:600;font-size:0.875rem;">${esc(d.file_name||d.storage_path)}</div>
-              <div style="font-size:0.78rem;color:#666;">${esc(d.doc_type||'Document')} · ${fmtDate(d.uploaded_at)}</div>
+              <div style="font-size:0.78rem;color:#666;">${esc((d.doc_type||"").replace(/_/g," "))} \u00b7 ${fmtDate(d.uploaded_at)}</div>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="downloadDocById('${esc(d.storage_path)}')">Download</button>
-          </div>`).join('') : '<p style="color:#999;">No documents uploaded yet</p>'}
-      `)}
-    `, `Form view — ${appName}`);
-  };
+            <button class="btn btn-secondary btn-sm" onclick="downloadDocById(\'${esc(d.storage_path)}\')">Download</button>
+          </div>`).join(""):"<p style=\"color:#999;margin:0;\">No documents uploaded yet</p>"}
+        </div>
+      </div>
 
-  /* Form view save handler */
-  window.fvSave = async function(appId, fieldPath, value) {
-    const [table, field] = fieldPath.split('.');
-    const tableMap = { app: 'applications', appl: 'application_people', spou: 'application_people' };
-    const tbl = tableMap[table];
-    if (!tbl) return;
-
-    if (table === 'app') {
-      await sb.from('applications').update({ [field]: value || null, updated_at: new Date().toISOString() }).eq('id', appId);
-    } else {
-      const role = table === 'appl' ? 'applicant' : 'spouse';
-      const { data: person } = await sb.from('application_people').select('id').eq('application_id', appId).eq('person_role', role).single();
-      if (person) await sb.from('application_people').update({ [field]: value || null }).eq('id', person.id);
-    }
+    `,"Form view \u2014 "+appName);
   };
 
   window.downloadDocById = async function(path) {
@@ -262,110 +345,230 @@
   ======================================================================== */
 
   window.printChecklist = async function(appId) {
-    const { app, applicant, checklist, st } = await loadAppData(appId);
-    const appName = applicant.first_name ? applicant.first_name + ' ' + (applicant.last_name||'') : 'Applicant';
+    const { app, applicant, spouse, assets, income, transfers, checklist, docs, st } = await loadAppData(appId);
+    const appName = [applicant.first_name, applicant.last_name].filter(Boolean).join(' ') || 'Applicant';
 
-    const CHECKLIST_INFO = {
-      photo_id:               { label: 'Government photo ID', how: 'Driver\'s license, state ID card, or passport. Upload front and back.' },
-      birth_certificate:      { label: 'Birth certificate or proof of age', how: 'Contact the vital records office of the state of birth, or the SSA at 1-800-772-1213.' },
-      ss_award_letter:        { label: 'Social Security award/benefit letter', how: 'Available instantly at ssa.gov/myaccount, or call 1-800-772-1213 to request by mail.' },
-      medicare_card:          { label: 'Medicare card', how: 'If lost, call 1-800-MEDICARE or print at medicare.gov.' },
+    // Build a comprehensive list of everything needed to complete the packet
+    // Each item: { key, category, label, status, how, urgent }
+    const allItems = [];
+
+    function item(key, category, label, status, how, urgent) {
+      allItems.push({ key, category, label, status: status || 'missing', how: how || '', urgent: !!urgent });
+    }
+
+    // ── PERSONAL INFORMATION ─────────────────────────────────────────────
+    item('info_state',    'Personal information', 'State selected',                    app.state ? 'done' : 'missing', 'Answer the first question in the application.');
+    item('info_fname',    'Personal information', 'Applicant first name',              applicant.first_name ? 'done' : 'missing', 'Complete Phase 1 of the question flow.');
+    item('info_lname',    'Personal information', 'Applicant last name',               applicant.last_name ? 'done' : 'missing', 'Complete Phase 1 of the question flow.');
+    item('info_dob',      'Personal information', 'Applicant date of birth',           applicant.dob ? 'done' : 'missing', 'Complete Phase 2 of the question flow.');
+    item('info_ssn',      'Personal information', 'SSN (last 4 digits)',               applicant.ssn_last4 ? 'done' : 'missing', 'Complete Phase 2 of the question flow.');
+    item('info_address',  'Personal information', 'Home address before nursing home',  applicant.address1 ? 'done' : 'missing', 'Complete Phase 2 of the question flow.');
+    item('info_phone',    'Personal information', 'Phone number',                      applicant.phone ? 'done' : 'missing', 'Complete Phase 2 of the question flow.');
+    item('info_marital',  'Personal information', 'Marital status',                    app.marital_status ? 'done' : 'missing', 'Complete Phase 1 of the question flow.', true);
+    item('info_facility', 'Personal information', 'Nursing facility name',             app.facility_name ? 'done' : 'missing', 'Complete Phase 1 of the question flow.', true);
+    item('info_admit',    'Personal information', 'Admission date',                    app.facility_admission_date ? 'done' : 'missing', 'Complete Phase 1 of the question flow.', true);
+
+    if (app.marital_status === 'married') {
+      item('info_spouse_fname', 'Spouse information', 'Spouse first name',      spouse.first_name ? 'done' : 'missing', 'Complete Phase 4 of the question flow.');
+      item('info_spouse_lname', 'Spouse information', 'Spouse last name',       spouse.last_name ? 'done' : 'missing',  'Complete Phase 4 of the question flow.');
+      item('info_spouse_dob',   'Spouse information', 'Spouse date of birth',   spouse.dob ? 'done' : 'missing',        'Complete Phase 4 of the question flow.');
+      item('info_spouse_ssn',   'Spouse information', 'Spouse SSN (last 4)',    spouse.ssn_last4 ? 'done' : 'missing',  'Complete Phase 4 of the question flow.');
+    }
+
+    // ── MEDICAL ──────────────────────────────────────────────────────────
+    item('med_nfloc',   'Medical', 'Nursing facility level of care documented',  app.level_of_care_documented ? 'done' : 'missing', 'Ask the facility social worker to arrange a physician assessment. This is standard at admission.', true);
+    item('med_diag',    'Medical', 'Primary diagnosis on file',                  applicant.primary_diagnosis ? 'done' : 'missing',  'Complete Phase 3 of the question flow.');
+    item('med_phys',    'Medical', 'Attending physician name',                   applicant.attending_physician ? 'done' : 'missing', 'Complete Phase 3 of the question flow.');
+    const adlKeys = ['adl_bathing','adl_dressing','adl_eating','adl_transferring','adl_toileting','adl_continence'];
+    const adlFilled = adlKeys.filter(k => applicant[k]).length;
+    item('med_adls',    'Medical', `ADL assessment complete (${adlFilled}/6 answered)`, adlFilled === 6 ? 'done' : adlFilled > 0 ? 'pending' : 'missing', 'Complete Phase 3 of the question flow.');
+    const needsHelp = adlKeys.filter(k => applicant[k] && applicant[k] !== 'Independent').length;
+    item('med_qualify', 'Medical', 'Medically qualifies (2+ ADLs need assistance)', needsHelp >= 2 ? 'done' : 'missing', 'At least 2 ADLs must show need for assistance to qualify for nursing home Medicaid.', true);
+
+    // ── ASSETS ───────────────────────────────────────────────────────────
+    item('assets_recorded', 'Assets', `Assets inventory complete (${assets.length} recorded)`, assets.length > 0 ? 'done' : 'missing', 'Complete Phase 5 of the question flow.', true);
+    if (st) {
+      const countable = assets.filter(a=>!a.is_exempt).reduce((s,a)=>s+(parseFloat(a.value)||0),0);
+      item('assets_limit', 'Assets', `Countable assets vs. state limit ($${countable.toLocaleString()} vs $${(st.assetLimit||2000).toLocaleString()} limit)`,
+        countable <= (st.assetLimit || 2000) ? 'done' : 'missing',
+        countable > (st.assetLimit || 2000) ? 'Countable assets exceed the limit. Assets must be spent down or protected before approval. Consult an elder law attorney.' : '',
+        countable > (st.assetLimit || 2000));
+    }
+
+    // ── INCOME ───────────────────────────────────────────────────────────
+    item('income_recorded', 'Income', `Income sources documented (${income.length} recorded)`, income.length > 0 ? 'done' : 'missing', 'Complete Phase 6 of the question flow.', true);
+    if (st && st.incomeLimit) {
+      const totalIncome = income.filter(i=>i.person==='applicant').reduce((s,i)=>s+(parseFloat(i.amount)||0)*(FREQ_FACTORS[i.frequency]||1),0);
+      item('income_limit', 'Income', `Income vs. state limit ($${Math.round(totalIncome).toLocaleString()}/mo vs $${st.incomeLimit.toLocaleString()}/mo)`,
+        totalIncome <= st.incomeLimit ? 'done' : 'missing',
+        totalIncome > st.incomeLimit ? 'Income exceeds the state cap. A Qualified Income Trust (Miller Trust) will be required. Contact an elder law attorney.' : '',
+        totalIncome > st.incomeLimit);
+    }
+
+    // ── TRANSFERS ────────────────────────────────────────────────────────
+    item('transfers_disclosed', 'Transfers & lookback', '5-year lookback section completed', transfers.length >= 0 ? 'done' : 'missing', 'Complete Phase 8 of the question flow.');
+    const totalUV = transfers.reduce((s,t)=>s+(parseFloat(t.uncompensated_value)||0),0);
+    if (totalUV > 0) {
+      const penMonths = st?.penaltyDivisor ? (totalUV / st.penaltyDivisor).toFixed(1) : null;
+      item('transfers_penalty', 'Transfers & lookback',
+        `Uncompensated transfers: $${totalUV.toLocaleString()} — attorney review needed`,
+        'missing',
+        `Transfers of $${totalUV.toLocaleString()} may result in a penalty period${penMonths?' of ~'+penMonths+' months':''} before Medicaid will pay. Consult an elder law attorney before submitting.`,
+        true);
+    }
+
+    // ── DOCUMENTS ────────────────────────────────────────────────────────
+    const DOC_INFO = {
+      photo_id:               { label: 'Government photo ID', how: "Driver's license, state ID, or passport. Call the DMV for a replacement if lost." },
+      birth_certificate:      { label: 'Birth certificate or proof of age', how: 'Contact the vital records office of the birth state, or call SSA at 1-800-772-1213.' },
+      ss_award_letter:        { label: 'Social Security award/benefit letter', how: 'Get instantly at ssa.gov/myaccount or call 1-800-772-1213 to request by mail.' },
+      medicare_card:          { label: 'Medicare card', how: 'Call 1-800-MEDICARE or print at medicare.gov. Free replacement takes 1-2 weeks by mail.' },
       citizenship_proof:      { label: 'Proof of U.S. citizenship', how: 'Passport, birth certificate, or naturalization certificate.' },
-      immigration_docs:       { label: 'Immigration documents', how: 'Green card, visa, or Employment Authorization Document.' },
-      proof_of_residency:     { label: 'Proof of residence before nursing home', how: 'Lease, mortgage statement, utility bill, or bank statement showing home address.' },
-      marriage_certificate:   { label: 'Marriage certificate', how: 'Contact the vital records office of the state or county where the marriage took place.' },
+      immigration_docs:       { label: 'Immigration documents', how: 'Green card, visa, or EAD card.' },
+      proof_of_residency:     { label: 'Proof of residence before nursing home', how: 'Lease, mortgage statement, utility bill, or bank statement at the home address.' },
+      marriage_certificate:   { label: 'Marriage certificate', how: 'Contact the vital records office of the state/county where the marriage took place.' },
       divorce_or_death_cert:  { label: 'Divorce decree or death certificate (prior marriage)', how: 'Contact the county courthouse (divorce) or vital records office (death certificate).' },
-      poa_document:           { label: 'Power of attorney or guardianship paperwork', how: 'The signed, notarized POA document or court guardianship order.' },
-      nfloc_documentation:    { label: 'Nursing facility level of care documentation', how: 'Ask the facility social worker to provide the physician\'s NFLOC assessment.' },
+      poa_document:           { label: 'Power of attorney or guardianship paperwork', how: 'The signed, notarized POA or court guardianship order.' },
+      nfloc_documentation:    { label: 'Nursing facility level of care documentation', how: 'Ask the facility social worker — this is standard and they do it regularly.' },
       admission_records:      { label: 'Nursing home admission records and account statement', how: 'Request from the nursing home billing department.' },
-      physician_letter:       { label: 'Letter or records from attending physician', how: 'Request from the attending physician\'s office.' },
-      bank_checking_1:        { label: 'Checking account — 60 months of statements', how: 'Download from online banking as PDFs, or request from branch.' },
-      bank_checking_2:        { label: 'Second checking account — 60 months of statements', how: 'Download from online banking as PDFs, or request from branch.' },
-      bank_savings_1:         { label: 'Savings account — 60 months of statements', how: 'Download from online banking as PDFs, or request from branch.' },
-      bank_cd_1:              { label: 'CD — statements', how: 'Most recent statement from the issuing bank, plus any statements from the past 60 months.' },
-      investment_stmt_1:      { label: 'Investment/brokerage account — 60 months of statements', how: 'Download quarterly statements from brokerage portal or request from advisor.' },
-      retirement_stmt_1:      { label: 'Retirement account — 60 months of statements', how: 'Download quarterly statements from account portal or request from plan administrator.' },
-      closed_account_statements: { label: 'Closed account closing statements', how: 'Contact the bank to request a closing statement or account history showing zero balance.' },
-      home_deed:              { label: 'Deed to primary home', how: 'Contact the county recorder\'s office — deeds are public records, usually available online.' },
-      home_tax_statement:     { label: 'Property tax statement', how: 'Available from the county tax assessor or in the mail each year.' },
-      home_insurance:         { label: 'Homeowner\'s insurance declarations page', how: 'Contact your insurance agent or download from the insurer\'s portal.' },
-      other_re_deed:          { label: 'Deed to other real estate', how: 'Contact the county recorder\'s office where the property is located.' },
-      vehicle_title_1:        { label: 'Vehicle title', how: 'Contact your state DMV if lost — a duplicate title can be ordered.' },
-      vehicle_title_2:        { label: 'Second vehicle title', how: 'Contact your state DMV if lost.' },
-      life_insurance_policy:  { label: 'Life insurance policy and cash surrender value statement', how: 'Contact the insurance company directly. Ask for the current cash surrender value statement.' },
+      physician_letter:       { label: 'Physician letter or medical records', how: "Request from the attending physician's office." },
+      bank_checking_1:        { label: 'Checking account — 60 months of statements', how: 'Download as PDFs from online banking or request from a branch. Most banks keep 7 years of statements.' },
+      bank_checking_2:        { label: 'Second checking account — 60 months of statements', how: 'Same as above for the second account.' },
+      bank_savings_1:         { label: 'Savings account — 60 months of statements', how: 'Download or request from the bank. Include all monthly/quarterly statements.' },
+      bank_cd_1:              { label: 'CD — statements', how: 'Most recent statement plus any from the past 60 months from the issuing bank.' },
+      investment_stmt_1:      { label: 'Investment/brokerage account — 60 months of statements', how: 'Download quarterly statements from the brokerage portal or ask your advisor.' },
+      retirement_stmt_1:      { label: 'Retirement account — 60 months of statements', how: 'Download quarterly statements or request from the plan administrator.' },
+      closed_account_statements: { label: 'Closed account closing statements (zero balance)', how: 'Contact the bank for a closing statement or letter confirming the account closed and final balance.' },
+      home_deed:              { label: 'Deed to primary home', how: "Contact the county recorder's office — deeds are public records, often available online for free." },
+      home_tax_statement:     { label: 'Property tax statement (home)', how: 'Available from the county tax assessor or in the annual tax bill.' },
+      home_insurance:         { label: "Homeowner's insurance declarations page", how: 'Contact your insurance agent or download from the insurer portal.' },
+      other_re_deed:          { label: 'Deed to other real estate', how: "Contact the county recorder's office where the property is located." },
+      vehicle_title_1:        { label: 'Vehicle title', how: 'Contact your state DMV to order a duplicate if lost.' },
+      vehicle_title_2:        { label: 'Second vehicle title', how: 'Contact your state DMV to order a duplicate if lost.' },
+      life_insurance_policy:  { label: 'Life insurance policy and cash surrender value statement', how: 'Contact the insurance company directly. Ask for the current CSV statement.' },
       burial_contract:        { label: 'Prepaid funeral/burial contract', how: 'Contact the funeral home or burial society that issued the policy.' },
       trust_document:         { label: 'Trust document and Schedule A', how: 'Contact the attorney who drafted the trust, or the trustee.' },
       annuity_contract:       { label: 'Annuity contract', how: 'Contact the insurance company that issued the annuity.' },
-      ltc_insurance_policy:   { label: 'Long-term care insurance policy', how: 'Contact the insurance company. Ask for current benefit status statement.' },
-      pension_statement:      { label: 'Pension award letter or statement', how: 'Contact the pension administrator or former employer.' },
+      ltc_insurance_policy:   { label: 'Long-term care insurance policy', how: 'Contact the insurance company. Also request current benefit status.' },
+      pension_statement:      { label: 'Pension award letter or statement', how: 'Contact the pension administrator or former employer HR department.' },
       va_award_letter:        { label: 'VA benefits award letter', how: 'Available at va.gov or by calling 1-800-827-1000.' },
       nh_trust_account:       { label: 'Nursing home trust/comfort account statement', how: 'Request from the nursing home business office.' },
-      transfer_docs_1:        { label: 'Transfer documentation — gift #1', how: 'Cancelled check, bank statement showing withdrawal, deed, or gift letter.' },
-      additional_transfer_docs: { label: 'Additional transfer documentation', how: 'Any evidence of additional transfers — bank statements, deeds, gift letters.' },
-      promissory_note_1:      { label: 'Promissory note', how: 'The signed promissory note documenting the loan terms.' },
+      transfer_docs_1:        { label: 'Transfer documentation — gift/transfer #1', how: 'Cancelled check, bank statement showing withdrawal, deed, or gift letter.' },
+      additional_transfer_docs: { label: 'Additional transfer documentation', how: 'Bank statements, deeds, gift letters, or any other evidence.' },
+      promissory_note_1:      { label: 'Promissory note', how: 'The signed promissory note documenting the loan repayment terms.' },
     };
 
-    const done    = Object.entries(checklist).filter(([k,v]) => v === 'done');
-    const missing = Object.entries(checklist).filter(([k,v]) => v !== 'done');
+    // Add document items from checklist
+    Object.entries(DOC_INFO).forEach(([key, info]) => {
+      const status = checklist[key];
+      if (status) {
+        item('doc_'+key, 'Documents', info.label, status, info.how, status !== 'done');
+      }
+    });
 
-    const missingRows = missing.map(([k]) => {
-      const info = CHECKLIST_INFO[k] || { label: k, how: '' };
-      return `<tr>
-        <td style="padding:10px 12px;border-bottom:1px solid #eee;width:40%;">
-          <strong>${info.label}</strong>
-        </td>
-        <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:0.85rem;color:#444;">
-          ${info.how}
-        </td>
-        <td style="padding:10px 12px;border-bottom:1px solid #eee;width:80px;text-align:center;">
-          <div style="width:20px;height:20px;border:1.5px solid #999;border-radius:3px;margin:0 auto;"></div>
-        </td>
-      </tr>`;
-    }).join('');
+    // Always required docs that may not be in checklist yet
+    ['photo_id','birth_certificate','ss_award_letter','nfloc_documentation','admission_records'].forEach(key => {
+      if (!checklist[key]) {
+        item('doc_'+key, 'Documents', DOC_INFO[key]?.label || key, 'missing', DOC_INFO[key]?.how || '', true);
+      }
+    });
+    if (applicant.medicare_number && !checklist['medicare_card']) {
+      item('doc_medicare_card', 'Documents', 'Medicare card', 'missing', DOC_INFO.medicare_card.how, false);
+    }
 
-    const doneRows = done.map(([k]) => {
-      const info = CHECKLIST_INFO[k] || { label: k, how: '' };
-      return `<tr style="color:#2b5b33;">
-        <td style="padding:8px 12px;border-bottom:1px solid #e8f0e8;" colspan="3">✅ ${info.label}</td>
-      </tr>`;
-    }).join('');
+    // Compute summary
+    const done    = allItems.filter(i => i.status === 'done');
+    const pending = allItems.filter(i => i.status === 'pending');
+    const missing = allItems.filter(i => i.status === 'missing');
+    const urgent  = missing.filter(i => i.urgent);
+
+    // Group by category
+    const categories = [...new Set(allItems.map(i => i.category))];
+
+    const pct = Math.round((done.length / allItems.length) * 100);
 
     const w = window.open('', '_blank');
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-      <title>Document Checklist — ${appName}</title>
+      <title>Application Checklist — ${esc(appName)}</title>
       <style>
-        body { font-family: Arial, sans-serif; font-size: 14px; color: #222; max-width: 780px; margin: 0 auto; padding: 32px; }
-        h1 { font-size: 1.4rem; margin-bottom: 4px; }
-        .sub { color: #666; font-size: 0.85rem; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 10px 12px; background: #f0f0f0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #555; border-bottom: 2px solid #ddd; }
-        .section-header { font-size: 0.9rem; font-weight: 700; color: #1a4480; padding: 14px 0 6px; border-bottom: 2px solid #1a4480; margin: 20px 0 0; }
-        @media print { body { padding: 16px; } }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 13px; color: #222; max-width: 820px; margin: 0 auto; padding: 32px; }
+        h1 { font-size: 1.3rem; margin: 0 0 4px; }
+        .meta { color: #666; font-size: 0.82rem; margin-bottom: 20px; }
+        .progress-bar { height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
+        .progress-fill { height: 100%; background: #1a4480; border-radius: 5px; width: ${pct}%; }
+        .progress-label { font-size: 0.8rem; color: #555; margin-bottom: 20px; }
+        .summary { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .summary-box { border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 120px; }
+        .summary-num { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+        .summary-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-top: 3px; }
+        .s-done { background: #ecf3ec; color: #2b5b33; }
+        .s-miss { background: #f4e3db; color: #6f3331; }
+        .s-pend { background: #faf3d1; color: #5c4809; }
+        .s-urg  { background: #fff0f0; color: #8c1c1c; border: 1px solid #e0a0a0; }
+        .cat-header { font-size: 0.85rem; font-weight: 700; color: #1a4480; border-bottom: 2px solid #1a4480; padding-bottom: 5px; margin: 22px 0 10px; }
+        .cl-row { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+        .cl-row:last-child { border-bottom: none; }
+        .cl-check { width: 20px; height: 20px; border: 1.5px solid #aaa; border-radius: 3px; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .cl-check.done { background: #ecf3ec; border-color: #4d8055; color: #2b5b33; }
+        .cl-check.pending { background: #faf3d1; border-color: #c2850c; }
+        .cl-check.missing { background: #fff; border-color: #ccc; }
+        .cl-label { font-size: 0.875rem; font-weight: 600; }
+        .cl-how { font-size: 0.78rem; color: #666; margin-top: 2px; }
+        .urgent-tag { display: inline-block; background: #f4e3db; color: #6f3331; font-size: 0.65rem; font-weight: 700; padding: 1px 6px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.04em; margin-left: 6px; vertical-align: middle; }
+        @media print { body { padding: 16px; } .progress-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       </style>
     </head><body>
-      <h1>Document Checklist</h1>
-      <div class="sub">
-        Applicant: <strong>${esc(appName)}</strong> &nbsp;·&nbsp;
-        State: <strong>${st ? esc(st.name) : '—'}</strong> &nbsp;·&nbsp;
-        Date: <strong>${today()}</strong>
+      <h1>Application Checklist</h1>
+      <div class="meta">
+        <strong>${esc(appName)}</strong> &nbsp;·&nbsp;
+        ${st ? esc(st.name) + ' &nbsp;·&nbsp; ' : ''}
+        Printed: ${today()}
       </div>
 
-      ${missing.length > 0 ? `
-        <div class="section-header">Outstanding — ${missing.length} item${missing.length===1?'':'s'} needed</div>
-        <table>
-          <tr><th>Document</th><th>How to obtain</th><th>Got it?</th></tr>
-          ${missingRows}
-        </table>` : `<p style="color:#2b5b33;font-weight:700;">✅ All documents collected!</p>`}
+      <div class="progress-bar"><div class="progress-fill"></div></div>
+      <div class="progress-label">${pct}% complete — ${done.length} of ${allItems.length} items done</div>
 
-      ${done.length > 0 ? `
-        <div class="section-header">Already uploaded — ${done.length} item${done.length===1?'':'s'}</div>
-        <table>${doneRows}</table>` : ''}
+      <div class="summary">
+        <div class="summary-box s-done">
+          <div class="summary-num">${done.length}</div>
+          <div class="summary-lbl">✅ Complete</div>
+        </div>
+        <div class="summary-box s-miss">
+          <div class="summary-num">${missing.length}</div>
+          <div class="summary-lbl">🔴 Missing</div>
+        </div>
+        ${pending.length > 0 ? `<div class="summary-box s-pend">
+          <div class="summary-num">${pending.length}</div>
+          <div class="summary-lbl">🟡 In progress</div>
+        </div>` : ''}
+        ${urgent.length > 0 ? `<div class="summary-box s-urg">
+          <div class="summary-num">${urgent.length}</div>
+          <div class="summary-lbl">⚠ Urgent</div>
+        </div>` : ''}
+      </div>
+
+      ${categories.map(cat => {
+        const catItems = allItems.filter(i => i.category === cat);
+        if (catItems.length === 0) return '';
+        return `
+          <div class="cat-header">${esc(cat)}</div>
+          ${catItems.map(item => `
+            <div class="cl-row">
+              <div class="cl-check ${item.status}">${item.status==='done'?'✓':item.status==='pending'?'◑':''}</div>
+              <div>
+                <div class="cl-label">${esc(item.label)}${item.urgent && item.status!=='done'?'<span class="urgent-tag">urgent</span>':''}</div>
+                ${item.status !== 'done' && item.how ? `<div class="cl-how">${esc(item.how)}</div>` : ''}
+              </div>
+            </div>`).join('')}`;
+      }).join('')}
+
     </body></html>`);
     w.document.close();
-    setTimeout(() => w.print(), 500);
+    setTimeout(() => w.print(), 600);
   };
 
-  /* ========================================================================
+    /* ========================================================================
      3. EXPORT PACKET PDF
      Full submission package with cover letter, POA disclosure, all sections,
      document index, and signed certification

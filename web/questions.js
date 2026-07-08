@@ -2249,6 +2249,7 @@
 
   function updateChecklist(key, status) {
     CHECKLIST[key] = status;
+    window._currentChecklist = CHECKLIST; // expose for packet.js
     renderChecklist();
     if (appId && appId !== 'demo') {
       sb.from('checklist_items').upsert({ application_id: appId, item_key: key, completed: status === 'done' }, { onConflict: 'application_id,item_key' }).then(() => {});
