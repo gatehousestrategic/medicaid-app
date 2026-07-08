@@ -326,36 +326,15 @@ async function createApplication() {
 }
 
 /* --------------------------------------------------------------------------
-   Application detail (intake form — next phase)
+   Application detail — delegates to intake.js
 -------------------------------------------------------------------------- */
 async function renderApplication(id) {
   if (!currentUser) return go('#/login');
-  shell(`<div class="spinner-wrap">Loading…</div>`);
-
-  const { data: app, error } = await sb.from('applications').select('*').eq('id', id).single();
-  if (error) {
-    shell(`<div class="page-wrap"><div class="alert alert-error"><strong>Couldn't load this application.</strong> ${esc(error.message)}</div></div>`);
-    return;
+  if (typeof window.renderApplicationIntake === 'function') {
+    await window.renderApplicationIntake(id);
+  } else {
+    shell(`<div class="page-wrap"><div class="alert alert-error">Intake form failed to load. Please refresh the page.</div></div>`);
   }
-
-  const st = app.state ? getStateData(app.state) : null;
-
-  shell(`
-    <div class="page-header">
-      <div class="page-header-inner">
-        <div class="eyebrow">Application ${app.id.slice(0,8)}</div>
-        <h1>${st ? esc(st.name) : 'New application'}</h1>
-        <p>Status: <span class="badge badge-${app.status}" style="vertical-align:middle;">${STATUS_LABEL[app.status]||app.status}</span></p>
-      </div>
-    </div>
-    <div class="page-wrap medium">
-      <div class="alert alert-info">
-        <strong>Intake form coming next.</strong>
-        This page confirms your account, database, and Row Level Security are all working correctly. The full intake — applicant details, spouse information, asset inventory, income, 60-month lookback, document uploads, and the state-specific PDF packet — is the next phase being built.
-      </div>
-      <a href="#/dashboard" class="btn btn-secondary">← Back to my applications</a>
-    </div>
-  `);
 }
 
 /* --------------------------------------------------------------------------
