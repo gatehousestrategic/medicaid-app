@@ -905,16 +905,15 @@
   /* ------------------------------------------------------------------------
      RENDER
   ------------------------------------------------------------------------ */
-  function renderQ() {
-    computeFlow();
-    const q = currentQ();
-    if (!q) { renderComplete(); return; }
+  let _shellRendered = false;
 
+  function cardInnerHTML(q) {
+    computeFlow();
+    if (!q) return '';
     const phase = q.phase && typeof q.phase === 'function' ? q.phase() : q.phase;
     const phaseIndex = [...new Set(FLOW.map(x => typeof x.phase === 'function' ? x.phase() : x.phase))].indexOf(phase) + 1;
     const totalPhases = [...new Set(FLOW.map(x => typeof x.phase === 'function' ? x.phase() : x.phase))].length;
     const phasePct = Math.round((qIndex / FLOW.length) * 100);
-
     const text = typeof q.text === 'function' ? q.text() : q.text;
     const sub  = q.sub ? (typeof q.sub === 'function' ? q.sub() : q.sub) : null;
 
@@ -946,7 +945,6 @@
         </div>`;
       }
     } else {
-      // text, date, number, tel, email
       const currentVal = q.getValue ? (q.getValue() || '') : '';
       inputHtml = `
         <input type="${q.type}" id="qInput" class="q-input"
@@ -958,36 +956,72 @@
         <button class="qbtn qbtn-primary" onclick="qNextFromInput()" style="margin-top:16px;">Continue →</button>`;
     }
 
-    shell(`
-      <div class="q-wrap">
-        <div class="q-main">
-          <div class="q-progress-wrap">
-            <div class="q-phase-label">Phase ${phaseIndex} of ${totalPhases} — ${esc(phase)}</div>
-            <div class="q-progress-bar"><div class="q-progress-fill" style="width:${phasePct}%"></div></div>
-          </div>
+    return { phase, phaseIndex, totalPhases, phasePct, text, sub, inputHtml, tipKey: q.tip };
+  }
 
-          <div class="q-card">
-            ${q.tip ? `<div style="float:right;">${window.tip ? tip(q.tip) : ''}</div>` : ''}
-            <div class="q-text">${esc(text)}</div>
-            ${sub ? `<div class="q-sub">${esc(sub)}</div>` : ''}
-            <div class="q-input-wrap">${inputHtml}</div>
-          </div>
+  function renderQ() {
+    computeFlow();
+    const q = currentQ();
+    if (!q) { renderComplete(); return; }
 
-          <div class="q-nav">
-            ${qIndex > 0 ? `<button class="qbtn qbtn-ghost" onclick="qBack()">← Back</button>` : '<span></span>'}
-            <button class="qbtn qbtn-ghost" onclick="qSaveLater()">Save & continue later</button>
+    const { phase, phaseIndex, totalPhases, phasePct, text, sub, inputHtml, tipKey } = cardInnerHTML(q);
+
+    // First render — build the full shell once
+    if (!_shellRendered || !document.getElementById('q-card-inner')) {
+      shell(`
+        <div class="q-wrap">
+          <div class="q-main">
+            <div class="q-progress-wrap">
+              <div id="q-phase-label" class="q-phase-label">Phase ${phaseIndex} of ${totalPhases} — ${esc(phase)}</div>
+              <div class="q-progress-bar"><div id="q-progress-fill" class="q-progress-fill" style="width:${phasePct}%"></div></div>
+            </div>
+            <div class="q-card">
+              <div id="q-card-inner">
+                ${tipKey ? `<div style="float:right;">${window.tip ? tip(tipKey) : ''}</div>` : ''}
+                <div class="q-text">${esc(text)}</div>
+                ${sub ? `<div class="q-sub">${esc(sub)}</div>` : ''}
+                <div class="q-input-wrap">${inputHtml}</div>
+              </div>
+            </div>
+            <div id="q-nav" class="q-nav">
+              ${qIndex > 0 ? `<button class="qbtn qbtn-ghost" onclick="qBack()">← Back</button>` : '<span></span>'}
+              <button class="qbtn qbtn-ghost" onclick="qSaveLater()">Save & continue later</button>
+            </div>
+          </div>
+          <div class="q-sidebar">
+            <div class="q-checklist-panel">
+              <div class="q-checklist-title">📋 Your checklist</div>
+              <div class="q-checklist-sub">Updates as you answer questions</div>
+              <div id="checklistItems">${renderChecklistItems()}</div>
+            </div>
           </div>
         </div>
+      `, `Application — ${name()}`);
+      _shellRendered = true;
+    } else {
+      // Subsequent renders — only update the parts that change
+      const inner = document.getElementById('q-card-inner');
+      const phaseLabel = document.getElementById('q-phase-label');
+      const progressFill = document.getElementById('q-progress-fill');
+      const nav = document.getElementById('q-nav');
 
-        <div class="q-sidebar">
-          <div class="q-checklist-panel">
-            <div class="q-checklist-title">📋 Your checklist</div>
-            <div class="q-checklist-sub">Updates as you answer questions</div>
-            <div id="checklistItems">${renderChecklistItems()}</div>
-          </div>
-        </div>
-      </div>
-    `, `Application — ${name()}`);
+      if (inner) inner.innerHTML = `
+        ${tipKey ? `<div style="float:right;">${window.tip ? tip(tipKey) : ''}</div>` : ''}
+        <div class="q-text">${esc(text)}</div>
+        ${sub ? `<div class="q-sub">${esc(sub)}</div>` : ''}
+        <div class="q-input-wrap">${inputHtml}</div>`;
+
+      if (phaseLabel) phaseLabel.textContent = `Phase ${phaseIndex} of ${totalPhases} — ${phase}`;
+      if (progressFill) progressFill.style.width = phasePct + '%';
+      if (nav) nav.innerHTML = `
+        ${qIndex > 0 ? `<button class="qbtn qbtn-ghost" onclick="qBack()">← Back</button>` : '<span></span>'}
+        <button class="qbtn qbtn-ghost" onclick="qSaveLater()">Save & continue later</button>`;
+
+      // Focus text input if present
+      const input = document.getElementById('qInput');
+      if (input) setTimeout(() => input.focus(), 50);
+    }
+    renderChecklist();
   }
 
   function renderChecklistItems() {
@@ -1249,6 +1283,7 @@
     appId = id;
     qIndex = 0;
     CHECKLIST = {};
+    _shellRendered = false;
 
     shell(`<div style="text-align:center;padding:60px;color:var(--ink-faint);">Loading your application…</div>`, 'Loading');
 
