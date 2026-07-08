@@ -1247,7 +1247,8 @@
 
     await loadAll(id);
     computeFlow();
-    qIndex = findResumeIndex();
+    // Demo always starts at question 1 so the flow is visible
+    qIndex = (id === 'demo') ? 0 : findResumeIndex();
     renderQ();
   };
 
