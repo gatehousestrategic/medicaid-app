@@ -2578,8 +2578,9 @@
       padding: 40px 20px 80px;
       align-items: start;
     }
-    .q-main { min-width: 0; width: 100%; }
+    .q-main { min-width: 0; width: 100%; overflow: hidden; }
     .q-sidebar { width: 280px; flex-shrink: 0; }
+    .q-card { width: 100%; box-sizing: border-box; }
     .q-checklist-panel {
       background: #fff;
       border: 1px solid var(--border);
