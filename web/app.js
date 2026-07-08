@@ -331,7 +331,7 @@ async function createApplication() {
    Application detail — delegates to intake.js
 -------------------------------------------------------------------------- */
 async function renderApplication(id) {
-  if (!currentUser) return go('#/login');
+  if (!currentUser && id !== 'demo') return go('#/login');
   if (typeof window.renderApplicationIntake === 'function') {
     await window.renderApplicationIntake(id);
   } else {
