@@ -151,6 +151,16 @@
      Load all data for an application
   ------------------------------------------------------------------------ */
   async function loadAll(id) {
+    // Demo mode — load prefilled data from demo.js, no database calls
+    if (id === 'demo' && window._demoData) {
+      APP       = {...window._demoData.APP};
+      APPL      = {...window._demoData.APPL};
+      SPOU      = {...window._demoData.SPOU};
+      ASSETS    = window._demoData.ASSETS.map(a => ({...a}));
+      INCOME    = window._demoData.INCOME.map(i => ({...i}));
+      TRANSFERS = window._demoData.TRANSFERS.map(t => ({...t}));
+      return;
+    }
     const [appRes, peopleRes, assetsRes, incRes, transRes] = await Promise.all([
       sb.from('applications').select('*').eq('id', id).single(),
       sb.from('application_people').select('*').eq('application_id', id),
@@ -203,14 +213,14 @@
       <p class="text-faint text-sm" style="margin-bottom:24px;">Basic information about where the applicant is receiving care and which state's rules apply.</p>
       <div class="field-row col2">
         <div class="field">
-          <label class="label" for="s0_state">State <span class="req">*</span></label>
+          <label class="label" for="s0_state">State <span class="req">*</span> ${window.tip&&tip("state")||""}</label>
           <select id="s0_state">
             <option value="">Select a state…</option>
             ${stateOpts}
           </select>
         </div>
         <div class="field">
-          <label class="label" for="s0_marital">Marital status <span class="req">*</span></label>
+          <label class="label" for="s0_marital">Marital status <span class="req">*</span> ${window.tip&&tip("marital_status")||""}</label>
           <select id="s0_marital">
             <option value="">Select…</option>
             <option value="single" ${APP.marital_status==='single'?'selected':''}>Single / widowed / divorced</option>
@@ -219,12 +229,12 @@
         </div>
       </div>
       <div class="field">
-        <label class="label" for="s0_facility">Nursing facility name</label>
+        <label class="label" for="s0_facility">Nursing facility name ${window.tip&&tip("facility_name")||""}</label>
         <input type="text" id="s0_facility" value="${esc(APP.facility_name||'')}">
       </div>
       <div class="field-row col2">
         <div class="field">
-          <label class="label" for="s0_admit">Admission date</label>
+          <label class="label" for="s0_admit">Admission date ${window.tip&&tip("facility_admission_date")||""}</label>
           <input type="date" id="s0_admit" value="${esc(APP.facility_admission_date||'')}">
         </div>
         <div class="field">
@@ -260,6 +270,7 @@
   }
 
   async function saveStep0() {
+    if (appId === 'demo') { APP.state = document.getElementById('s0_state').value; APP.marital_status = document.getElementById('s0_marital').value; return true; }
     const state    = document.getElementById('s0_state').value;
     const marital  = document.getElementById('s0_marital').value;
     const facility = document.getElementById('s0_facility').value.trim();
@@ -332,6 +343,7 @@
   }
 
   async function saveStep1() {
+    if (appId === 'demo') { return true; }
     const data = {
       application_id: appId, person_role: 'applicant',
       first_name: document.getElementById('a_first').value.trim(),
@@ -379,11 +391,11 @@
       <h2>Medical information</h2>
       <p class="text-faint text-sm" style="margin-bottom:24px;">Medical eligibility requires the applicant to need assistance with at least 2 activities of daily living (ADLs).</p>
       <div class="field-row col2">
-        <div class="field"><label class="label">Attending physician</label><input type="text" id="m_phys" value="${esc(p.attending_physician||'')}"></div>
+        <div class="field"><label class="label">Attending physician ${window.tip&&tip("m_phys")||""}</label><input type="text" id="m_phys" value="${esc(p.attending_physician||'')}"></div>
         <div class="field"><label class="label">Physician phone</label><input type="tel" id="m_physph" value="${esc(p.physician_phone||'')}"></div>
       </div>
-      <div class="field"><label class="label">Primary diagnosis</label><input type="text" id="m_diag" value="${esc(p.primary_diagnosis||'')}" placeholder="e.g. Alzheimer's disease, stroke, hip fracture"></div>
-      <div style="margin-top:20px;margin-bottom:8px;font-weight:700;">Activities of Daily Living (ADLs)</div>
+      <div class="field"><label class="label">Primary diagnosis ${window.tip&&tip("m_diag")||""}</label><input type="text" id="m_diag" value="${esc(p.primary_diagnosis||'')}" placeholder="e.g. Alzheimer's disease, stroke, hip fracture"></div>
+      <div style="margin-top:20px;margin-bottom:8px;font-weight:700;">Activities of Daily Living (ADLs) ${window.tip&&tip("adl")||""}</div>
       <div class="alert alert-info" style="margin-bottom:12px;">Rate each activity. Nursing facility level of care typically requires assistance with 2 or more.</div>
       ${adlRow('m','bathing','Bathing',p.adl_bathing)}
       ${adlRow('m','dressing','Dressing',p.adl_dressing)}
@@ -395,6 +407,7 @@
   }
 
   async function saveStep2() {
+    if (appId === 'demo') { return true; }
     const data = {
       attending_physician: document.getElementById('m_phys').value.trim(),
       physician_phone: document.getElementById('m_physph').value.trim(),
@@ -431,6 +444,7 @@
   }
 
   async function saveStep3() {
+    if (appId === 'demo') { return true; }
     const data = {
       application_id: appId, person_role: 'spouse',
       first_name: document.getElementById('sp_first').value.trim(),
@@ -473,17 +487,17 @@
           <button class="btn btn-danger btn-sm" onclick="removeAsset('${a._id}')">Remove</button>
         </div>
         <div class="field-row col2">
-          <div class="field"><label class="label">Asset type</label>
+          <div class="field"><label class="label">Asset type ${window.tip&&tip("asset_type")||""}</label>
             <select id="ast_type_${a._id}" onchange="updateAssetField('${a._id}','asset_type',this.value)">${typeOpts}</select>
           </div>
-          <div class="field"><label class="label">Owner</label>
+          <div class="field"><label class="label">Owner ${window.tip&&tip("asset_owner")||""}</label>
             <select id="ast_own_${a._id}" onchange="updateAssetField('${a._id}','owner',this.value)">${ownerOpts}</select>
           </div>
         </div>
         <div class="field-row col3">
-          <div class="field"><label class="label">Institution / description</label><input type="text" id="ast_inst_${a._id}" value="${esc(a.institution||a.description||'')}" oninput="updateAssetField('${a._id}','institution',this.value)"></div>
-          <div class="field"><label class="label">Account last 4 (optional)</label><input type="text" id="ast_acct_${a._id}" maxlength="4" value="${esc(a.account_last4||'')}" oninput="updateAssetField('${a._id}','account_last4',this.value)"></div>
-          <div class="field"><label class="label">Current value <span class="req">*</span></label><input type="number" id="ast_val_${a._id}" min="0" step="0.01" value="${a.value||''}" oninput="updateAssetField('${a._id}','value',this.value);refreshAssetTotal()"></div>
+          <div class="field"><label class="label">Institution / description ${window.tip&&tip("asset_institution")||""}</label><input type="text" id="ast_inst_${a._id}" value="${esc(a.institution||a.description||'')}" oninput="updateAssetField('${a._id}','institution',this.value)"></div>
+          <div class="field"><label class="label">Account last 4 (optional) ${window.tip&&tip("asset_account_last4")||""}</label><input type="text" id="ast_acct_${a._id}" maxlength="4" value="${esc(a.account_last4||'')}" oninput="updateAssetField('${a._id}','account_last4',this.value)"></div>
+          <div class="field"><label class="label">Current value <span class="req">*</span> ${window.tip&&tip("asset_value")||""}</label><input type="number" id="ast_val_${a._id}" min="0" step="0.01" value="${a.value||''}" oninput="updateAssetField('${a._id}','value',this.value);refreshAssetTotal()"></div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
           <input type="checkbox" id="ast_ex_${a._id}" ${a.is_exempt?'checked':''} onchange="updateAssetField('${a._id}','is_exempt',this.checked)" style="width:18px;height:18px;accent-color:var(--navy);">
@@ -541,6 +555,7 @@
   };
 
   async function saveStep4() {
+    if (appId === 'demo') { return true; }
     const { error: delErr } = await sb.from('assets').delete().eq('application_id', appId);
     if (delErr) { saveMsg('s4msg', delErr.message, true); return false; }
     if (ASSETS.length > 0) {
@@ -572,16 +587,16 @@
           <button class="btn btn-danger btn-sm" onclick="removeIncome('${s._id}')">Remove</button>
         </div>
         <div class="field-row col2">
-          <div class="field"><label class="label">Type</label>
+          <div class="field"><label class="label">Type ${window.tip&&tip("income_type")||""}</label>
             <select id="inc_type_${s._id}" onchange="updateIncomeField('${s._id}','income_type',this.value)">${typeOpts}</select>
           </div>
-          <div class="field"><label class="label">Person</label>
+          <div class="field"><label class="label">Person ${window.tip&&tip("income_person")||""}</label>
             <select id="inc_per_${s._id}" onchange="updateIncomeField('${s._id}','person',this.value)">${personOpts}</select>
           </div>
         </div>
         <div class="field-row col3">
-          <div class="field"><label class="label">Payer / source</label><input type="text" id="inc_pay_${s._id}" value="${esc(s.payer||'')}" oninput="updateIncomeField('${s._id}','payer',this.value)" placeholder="e.g. Social Security Administration"></div>
-          <div class="field"><label class="label">Amount</label><input type="number" id="inc_amt_${s._id}" min="0" step="0.01" value="${s.amount||''}" oninput="updateIncomeField('${s._id}','amount',this.value);refreshIncomeTotal()"></div>
+          <div class="field"><label class="label">Payer / source ${window.tip&&tip("income_payer")||""}</label><input type="text" id="inc_pay_${s._id}" value="${esc(s.payer||'')}" oninput="updateIncomeField('${s._id}','payer',this.value)" placeholder="e.g. Social Security Administration"></div>
+          <div class="field"><label class="label">Amount ${window.tip&&tip("income_amount")||""}</label><input type="number" id="inc_amt_${s._id}" min="0" step="0.01" value="${s.amount||''}" oninput="updateIncomeField('${s._id}','amount',this.value);refreshIncomeTotal()"></div>
           <div class="field"><label class="label">Frequency</label>
             <select id="inc_frq_${s._id}" onchange="updateIncomeField('${s._id}','frequency',this.value);refreshIncomeTotal()">${freqOpts}</select>
           </div>
@@ -630,6 +645,7 @@
   };
 
   async function saveStep5() {
+    if (appId === 'demo') { return true; }
     const { error: delErr } = await sb.from('income_sources').delete().eq('application_id', appId);
     if (delErr) { saveMsg('s5msg', delErr.message, true); return false; }
     if (INCOME.length > 0) {
@@ -656,19 +672,19 @@
           <button class="btn btn-danger btn-sm" onclick="removeTransfer('${t._id}')">Remove</button>
         </div>
         <div class="field-row col2">
-          <div class="field"><label class="label">Date of transfer <span class="req">*</span></label><input type="date" id="tr_date_${t._id}" value="${esc(t.transfer_date||'')}" oninput="updateTransferField('${t._id}','transfer_date',this.value)"></div>
-          <div class="field"><label class="label">What was transferred <span class="req">*</span></label><input type="text" id="tr_desc_${t._id}" value="${esc(t.asset_description||'')}" oninput="updateTransferField('${t._id}','asset_description',this.value)" placeholder="e.g. Cash gift, home at 123 Main St"></div>
+          <div class="field"><label class="label">Date of transfer <span class="req">*</span> ${window.tip&&tip("transfer_date")||""}</label><input type="date" id="tr_date_${t._id}" value="${esc(t.transfer_date||'')}" oninput="updateTransferField('${t._id}','transfer_date',this.value)"></div>
+          <div class="field"><label class="label">What was transferred <span class="req">*</span> ${window.tip&&tip("transfer_description")||""}</label><input type="text" id="tr_desc_${t._id}" value="${esc(t.asset_description||'')}" oninput="updateTransferField('${t._id}','asset_description',this.value)" placeholder="e.g. Cash gift, home at 123 Main St"></div>
         </div>
         <div class="field-row col3">
-          <div class="field"><label class="label">Fair market value at time of transfer</label><input type="number" id="tr_fmv_${t._id}" min="0" step="0.01" value="${t.fair_market_value||''}" oninput="updateTransferCalc('${t._id}')"></div>
-          <div class="field"><label class="label">Amount actually received</label><input type="number" id="tr_rcv_${t._id}" min="0" step="0.01" value="${t.amount_received||''}" oninput="updateTransferCalc('${t._id}')"></div>
-          <div class="field"><label class="label">Uncompensated value</label><input type="number" id="tr_uv_${t._id}" readonly value="${uv>0?uv:''}" style="background:#f5f5f5;"></div>
+          <div class="field"><label class="label">Fair market value at time of transfer ${window.tip&&tip("transfer_fmv")||""}</label><input type="number" id="tr_fmv_${t._id}" min="0" step="0.01" value="${t.fair_market_value||''}" oninput="updateTransferCalc('${t._id}')"></div>
+          <div class="field"><label class="label">Amount actually received ${window.tip&&tip("transfer_received")||""}</label><input type="number" id="tr_rcv_${t._id}" min="0" step="0.01" value="${t.amount_received||''}" oninput="updateTransferCalc('${t._id}')"></div>
+          <div class="field"><label class="label">Uncompensated value ${window.tip&&tip("transfer_uncompensated")||""}</label><input type="number" id="tr_uv_${t._id}" readonly value="${uv>0?uv:''}" style="background:#f5f5f5;"></div>
         </div>
         <div class="field-row col2">
-          <div class="field"><label class="label">Recipient name</label><input type="text" id="tr_rn_${t._id}" value="${esc(t.recipient_name||'')}" oninput="updateTransferField('${t._id}','recipient_name',this.value)"></div>
+          <div class="field"><label class="label">Recipient name ${window.tip&&tip("transfer_recipient")||""}</label><input type="text" id="tr_rn_${t._id}" value="${esc(t.recipient_name||'')}" oninput="updateTransferField('${t._id}','recipient_name',this.value)"></div>
           <div class="field"><label class="label">Relationship to applicant</label><input type="text" id="tr_rr_${t._id}" value="${esc(t.recipient_relationship||'')}" oninput="updateTransferField('${t._id}','recipient_relationship',this.value)" placeholder="e.g. Adult daughter"></div>
         </div>
-        <div class="field"><label class="label">Possible exemption</label><select id="tr_ex_${t._id}" onchange="updateTransferField('${t._id}','possible_exemption',this.value)">${exOpts}</select></div>
+        <div class="field"><label class="label">Possible exemption ${window.tip&&tip("transfer_exemption")||""}</label><select id="tr_ex_${t._id}" onchange="updateTransferField('${t._id}','possible_exemption',this.value)">${exOpts}</select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
           <label style="display:flex;align-items:center;gap:8px;font-size:0.875rem;"><input type="checkbox" id="tr_loan_${t._id}" ${t.was_loan?'checked':''} onchange="updateTransferField('${t._id}','was_loan',this.checked)" style="accent-color:var(--navy);width:16px;height:16px;"> This was a loan (not a gift)</label>
           <label style="display:flex;align-items:center;gap:8px;font-size:0.875rem;"><input type="checkbox" id="tr_pn_${t._id}" ${t.has_promissory_note?'checked':''} onchange="updateTransferField('${t._id}','has_promissory_note',this.checked)" style="accent-color:var(--navy);width:16px;height:16px;"> Has a signed promissory note</label>
@@ -734,6 +750,7 @@
   };
 
   async function saveStep6() {
+    if (appId === 'demo') { return true; }
     const { error: delErr } = await sb.from('transfers').delete().eq('application_id', appId);
     if (delErr) { saveMsg('s6msg', delErr.message, true); return false; }
     const meaningful = TRANSFERS.filter(t => t.transfer_date || t.asset_description);

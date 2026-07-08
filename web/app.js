@@ -137,7 +137,9 @@ function renderHome() {
           <div class="hero-actions">
             <a class="btn btn-primary" href="#/signup" style="background:var(--cyan);color:var(--navy-dark);font-size:1.05rem;padding:14px 28px;">Start your application</a>
             <a class="btn btn-secondary" href="#/login" style="border-color:rgba(255,255,255,0.3);color:#fff;background:rgba(255,255,255,0.08);">Sign in</a>
+            <button onclick="startDemo()" style="background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;padding:14px 22px;font-size:0.95rem;font-weight:600;cursor:pointer;">&#128064; Try a demo first</button>
           </div>
+          <p style="color:rgba(255,255,255,0.5);font-size:0.82rem;margin-top:16px;margin-bottom:0;">&#10003; Free &nbsp;&middot;&nbsp; &#10003; No account needed to try &nbsp;&middot;&nbsp; &#10003; Nothing submitted anywhere</p>
         </div>
         <div class="hero-card">
           <h3>How it works</h3>
