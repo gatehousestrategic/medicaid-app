@@ -2570,17 +2570,38 @@
   const style = document.createElement('style');
   style.textContent = `
     .q-wrap {
-      display: grid;
-      grid-template-columns: 1fr 280px;
+      display: flex;
+      flex-direction: row;
       gap: 24px;
       max-width: 1000px;
       margin: 0 auto;
       padding: 40px 20px 80px;
-      align-items: start;
+      align-items: flex-start;
     }
-    .q-main { min-width: 0; width: 100%; overflow: hidden; }
-    .q-sidebar { width: 280px; flex-shrink: 0; }
-    .q-card { width: 100%; box-sizing: border-box; }
+    .q-main {
+      flex: 0 0 660px;
+      width: 660px;
+      min-width: 0;
+      max-width: 660px;
+    }
+    .q-card {
+      width: 660px;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+    .q-sidebar {
+      flex: 0 0 280px;
+      width: 280px;
+      min-width: 280px;
+      max-width: 280px;
+      overflow: hidden;
+    }
+    @media (max-width: 980px) {
+      .q-wrap { flex-direction: column; }
+      .q-main { flex: none; width: 100%; max-width: 100%; }
+      .q-card { width: 100%; }
+      .q-sidebar { flex: none; width: 100%; max-width: 100%; order: -1; }
+    }
     .q-checklist-panel {
       background: #fff;
       border: 1px solid var(--border);
