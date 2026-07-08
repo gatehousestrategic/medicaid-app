@@ -2423,11 +2423,12 @@
             </div>
             <div id="q-nav" class="q-nav">
               ${qIndex > 0 ? `<button class="qbtn qbtn-ghost" onclick="qBack()">← Back</button>` : '<span></span>'}
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="qbtn qbtn-ghost" onclick="qSaveLater()">Save & continue later</button>
-                <button class="qbtn qbtn-ghost" onclick="go('#/formview/'+(window._currentAppId||'demo'))">⊞ Form view</button>
-                <button class="qbtn qbtn-ghost" onclick="printChecklist(window._currentAppId||'demo')">🖨 Checklist</button>
-                <button class="qbtn qbtn-ghost" onclick="exportPacketPDF(window._currentAppId||'demo')">📄 Export PDF</button>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <button class="qbtn-sm-ghost" onclick="qSaveLater()">Save for later</button>
+                <div style="width:1px;height:18px;background:#ddd;margin:0 2px;"></div>
+                <button class="qbtn-sm-ghost" onclick="go('#/formview/'+(window._currentAppId||'demo'))" title="Form view">⊞</button>
+                <button class="qbtn-sm-ghost" onclick="printChecklist(window._currentAppId||'demo')" title="Print checklist">🖨</button>
+                <button class="qbtn-sm-ghost" onclick="exportPacketPDF(window._currentAppId||'demo')" title="Export PDF">📄</button>
               </div>
             </div>
           </div>
@@ -2458,11 +2459,12 @@
       if (progressFill) progressFill.style.width = phasePct + '%';
       if (nav) nav.innerHTML = `
         ${qIndex > 0 ? `<button class="qbtn qbtn-ghost" onclick="qBack()">← Back</button>` : '<span></span>'}
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="qbtn qbtn-ghost" onclick="qSaveLater()">Save & continue later</button>
-          <button class="qbtn qbtn-ghost" onclick="go('#/formview/'+(window._currentAppId||'demo'))">⊞ Form view</button>
-          <button class="qbtn qbtn-ghost" onclick="printChecklist(window._currentAppId||'demo')">🖨 Checklist</button>
-          <button class="qbtn qbtn-ghost" onclick="exportPacketPDF(window._currentAppId||'demo')">📄 Export PDF</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="qbtn-sm-ghost" onclick="qSaveLater()">Save for later</button>
+          <div style="width:1px;height:18px;background:#ddd;margin:0 2px;"></div>
+          <button class="qbtn-sm-ghost" onclick="go('#/formview/'+(window._currentAppId||'demo'))" title="Form view">⊞</button>
+          <button class="qbtn-sm-ghost" onclick="printChecklist(window._currentAppId||'demo')" title="Print checklist">🖨</button>
+          <button class="qbtn-sm-ghost" onclick="exportPacketPDF(window._currentAppId||'demo')" title="Export PDF">📄</button>
         </div>`;
 
       // Focus text input if present
@@ -2591,6 +2593,24 @@
       .q-sidebar { width: 100%; order: -1; }
       .q-checklist-panel { min-height: auto; }
     }
+
+    .qbtn-sm-ghost {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--ink-soft);
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .qbtn-sm-ghost:hover { background: #f0f0f0; border-color: #aaa; }
 
     .q-progress-wrap { margin-bottom: 28px; }
     .q-phase-label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--cyan); margin-bottom: 8px; }
