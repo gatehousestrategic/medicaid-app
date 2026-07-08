@@ -563,6 +563,7 @@
             </div>`).join('')}`;
       }).join('')}
 
+    </div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 600);
@@ -593,11 +594,14 @@
     const penMonths   = st?.penaltyDivisor && totalUV > 0 ? (totalUV / st.penaltyDivisor).toFixed(1) : null;
 
     function kv(label, val) {
-      return `<tr><td style="width:200px;color:#555;padding:5px 8px;vertical-align:top;font-size:0.875rem;">${esc(label)}</td><td style="padding:5px 8px;font-size:0.875rem;">${val||'—'}</td></tr>`;
+      return `<tr><td style="width:190px;color:#555;">${esc(label)}</td><td>${val||'—'}</td></tr>`;
+    }
+    function kvTable(rows) {
+      return `<table class="kv-table">${rows}</table>`;
     }
     function section(title, content) {
-      return `<div style="margin-top:32px;">
-        <div style="font-family:Arial,sans-serif;font-size:1rem;font-weight:700;color:#162e51;border-bottom:2px solid #1a4480;padding-bottom:6px;margin-bottom:14px;">${title}</div>
+      return `<div class="sec-block">
+        <div class="sec-head">${title}</div>
         ${content}
       </div>`;
     }
@@ -605,23 +609,55 @@
     const packetHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">
       <title>Medicaid Application Packet — ${esc(appName)}</title>
       <style>
-        body { font-family: Arial, sans-serif; font-size: 13px; color: #222; line-height: 1.5; margin: 0; padding: 0; }
-        .page { max-width: 760px; margin: 0 auto; padding: 48px 40px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 7px 8px; background: #f0f0f0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #555; border-bottom: 2px solid #ddd; }
-        td { padding: 6px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
-        .page-break { page-break-before: always; }
-        .stamp { border: 2px solid #c2850c; color: #7a4e12; padding: 10px 18px; border-radius: 6px; display: inline-block; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-        .sig-line { border-top: 1px solid #333; width: 280px; margin-top: 40px; padding-top: 4px; font-size: 0.78rem; color: #666; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #111; line-height: 1.55; margin: 0; padding: 0; }
+        .doc { max-width: 720px; margin: 0 auto; padding: 40px 36px; }
+
+        /* Section headers — never orphan at bottom of page */
+        .sec-head {
+          font-family: Arial, sans-serif;
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: #162e51;
+          border-bottom: 2px solid #1a4480;
+          padding-bottom: 5px;
+          margin: 20px 0 10px;
+          page-break-after: avoid;
+        }
+        .sec-head:first-child { margin-top: 0; }
+
+        /* Content blocks — keep together */
+        .sec-block {
+          page-break-inside: avoid;
+          margin-bottom: 16px;
+        }
+
+        table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
+        th { text-align: left; padding: 6px 8px; background: #f0f0f0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #555; border-bottom: 2px solid #ddd; }
+        td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+
+        /* Only force breaks between the 3 major document groups */
+        .force-break { page-break-before: always; padding-top: 8px; }
+
+        .stamp { border: 1.5px solid #c2850c; color: #7a4e12; padding: 8px 14px; border-radius: 5px; display: inline-block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 14px; page-break-after: avoid; }
+        .sig-line { border-top: 1px solid #333; width: 260px; margin-top: 36px; padding-top: 4px; font-size: 0.75rem; color: #666; display: inline-block; margin-right: 32px; }
+        .notice { background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.8rem; color: #664d03; page-break-inside: avoid; }
+        .warn { background: #f8d7da; border: 1px solid #f5c2c7; border-radius: 5px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.8rem; color: #842029; page-break-inside: avoid; }
+        .kv-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .kv-table td { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; font-size: 0.875rem; }
+        .kv-table td:first-child { color: #555; width: 200px; }
+        .transfer-block { border: 1px solid #ddd; border-radius: 5px; padding: 10px 12px; margin-bottom: 10px; page-break-inside: avoid; }
+        .transfer-block.flagged { border-color: #f5c2c7; background: #fff8f8; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; font-size: 0.82rem; margin-top: 8px; }
         @media print {
-          .page { padding: 32px 24px; }
-          .page-break { page-break-before: always; }
+          .doc { padding: 24px 20px; }
+          body { font-size: 11px; }
         }
       </style>
     </head><body>
-
-    <!-- COVER LETTER -->
-    <div class="page">
+    <div class="doc">
       ${firm.firm_name ? `
         <div style="margin-bottom:32px;">
           <div style="font-size:1.1rem;font-weight:700;">${esc(firm.firm_name)}</div>
@@ -668,13 +704,13 @@
       <div class="sig-line">Authorized Representative / Date</div>
       ${firm.firm_name ? `<div style="margin-top:8px;font-size:0.85rem;">${esc(firm.firm_name)}</div>` : ''}
       ${firm.firm_phone ? `<div style="font-size:0.85rem;">${esc(firm.firm_phone)}</div>` : ''}
-    </div>
+
 
     <!-- AUTHORIZED REPRESENTATIVE DISCLOSURE -->
-    <div class="page page-break">
+    <div class="force-break">
       <div style="font-size:1.1rem;font-weight:700;margin-bottom:20px;color:#162e51;">Authorized Representative Disclosure</div>
 
-      <div class="stamp" style="margin-bottom:20px;">Section 1 of 9 — Representative Authorization</div>
+      <div class="sec-head">Section 1 — Representative Authorization</div>
 
       <p>${firm.firm_name ? esc(firm.firm_name) : 'The undersigned authorized representative'} hereby certifies that:</p>
 
@@ -691,11 +727,10 @@
         <div class="sig-line">Printed name &amp; title</div>
       </div>
       ${firm.firm_name ? `<div style="margin-top:12px;font-size:0.85rem;color:#666;">${esc(firm.firm_name)} ${firm.firm_address ? '· '+esc(firm.firm_address) : ''} ${firm.firm_phone ? '· '+esc(firm.firm_phone) : ''}</div>` : ''}
-    </div>
+    
 
-    <!-- SECTION 2: APPLICANT INFORMATION -->
-    <div class="page page-break">
-      <div class="stamp" style="margin-bottom:20px;">Section 2 of 9 — Applicant Information</div>
+    <!-- APPLICANT INFORMATION -->
+      <div class="sec-head">Section 2 — Applicant Information</div>
       ${section('Applicant Personal Information', `<table>
         ${kv('Full name', [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' '))}
         ${kv('Date of birth', fmtDate(applicant.dob))}
@@ -727,9 +762,10 @@
       </table>`)}
     </div>
 
-    <!-- SECTION 3: COMMUNITY SPOUSE -->
-    ${app.marital_status === 'married' ? `<div class="page page-break">
-      <div class="stamp" style="margin-bottom:20px;">Section 3 of 9 — Community Spouse Information</div>
+
+    <!-- COMMUNITY SPOUSE -->
+    ${app.marital_status === 'married' ? `<div class="force-break">
+      <div class="sec-head">Section 3 — Community Spouse</div>
       ${section('Community Spouse', `<table>
         ${kv('Full name', [spouse.first_name, spouse.last_name].filter(Boolean).join(' ')||'—')}
         ${kv('Date of birth', fmtDate(spouse.dob))}
@@ -742,9 +778,9 @@
       </table>`)}
     </div>` : ''}
 
-    <!-- SECTION 4: ASSET INVENTORY -->
-    <div class="page page-break">
-      <div class="stamp" style="margin-bottom:20px;">Section 4 of 9 — Asset Inventory</div>
+
+    <!-- ASSET INVENTORY -->
+      <div class="sec-head">Section 4 — Asset Inventory</div>
       ${section(`Asset Inventory — Total: ${fmtMoney(totalAssets)} | Countable: ${fmtMoney(countable)}${st ? ' | State limit: '+(st.assetLimit ? '$'+st.assetLimit.toLocaleString() : 'see notes') : ''}`, `
         <table>
           <tr><th>Owner</th><th>Asset Type</th><th>Institution / Description</th><th>Acct Last 4</th><th>Value</th><th>Exempt?</th></tr>
@@ -762,11 +798,10 @@
             <td>Countable: ${fmtMoney(countable)}</td>
           </tr>
         </table>`)}
-    </div>
+    
 
-    <!-- SECTION 5: INCOME -->
-    <div class="page page-break">
-      <div class="stamp" style="margin-bottom:20px;">Section 5 of 9 — Income</div>
+    <!-- INCOME -->
+      <div class="sec-head">Section 5 — Income</div>
       ${section(`Income Summary — Total: ${fmtMoney(totalIncome)}/month${st ? ' | State limit: '+(st.incomeLimit ? '$'+st.incomeLimit.toLocaleString()+'/mo' : 'no hard cap') : ''}`, `
         <table>
           <tr><th>Person</th><th>Source</th><th>Payer</th><th>Amount</th><th>Frequency</th><th>Monthly</th></tr>
@@ -785,11 +820,10 @@
         </table>
         ${st ? `<p style="font-size:0.82rem;color:#555;margin-top:12px;">Personal Needs Allowance: $${st.pna}/month. ${app.marital_status === 'married' ? 'Community spouse income protected per MMMNA rules. ' : ''}${st.incomeType === 'cap' ? 'Income cap state — Qualified Income Trust (Miller Trust) may be required if income exceeds $'+st.incomeLimit?.toLocaleString()+'/month.' : 'Medically needy/spend-down state.'}</p>` : ''}
       `)}
-    </div>
+    
 
-    <!-- SECTION 6: MEDICAL ELIGIBILITY -->
-    <div class="page page-break">
-      <div class="stamp" style="margin-bottom:20px;">Section 6 of 9 — Medical Eligibility</div>
+    <!-- MEDICAL ELIGIBILITY -->
+      <div class="sec-head">Section 6 — Medical Eligibility</div>
       ${section('Activities of Daily Living & Level of Care', `
         <table>
           <tr><th>ADL</th><th>Level</th></tr>
@@ -805,9 +839,10 @@
         </table>`)}
     </div>
 
-    <!-- SECTION 7: TRANSFERS -->
-    <div class="page page-break">
-      <div class="stamp" style="margin-bottom:20px;">Section 7 of 9 — ${st ? st.lookback : 60}-Month Lookback / Transfer Disclosure</div>
+
+    <!-- TRANSFERS -->
+    <div class="force-break">
+      <div class="sec-head">Section 7 — ${st ? st.lookback : 60}-Month Lookback / Transfer Disclosure</div>
       <p style="font-size:0.85rem;color:#555;margin-bottom:16px;">This section discloses all transfers, gifts, and below-market sales made in the ${st ? st.lookback : 60} months prior to this application, as required by federal Medicaid law. The IRS annual gift tax exclusion does not apply to Medicaid lookback rules.</p>
       ${totalUV > 0 ? `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:12px;margin-bottom:16px;font-size:0.85rem;color:#664d03;"><strong>⚠ Attorney review recommended.</strong> Total uncompensated transfers: ${fmtMoney(totalUV)}.${penMonths ? ' Estimated penalty period: ~'+penMonths+' months (verify with state).' : ''} Consult an elder law attorney.</div>` : ''}
       ${transfers.length ? transfers.map((t,i) => {
@@ -828,9 +863,10 @@
       }).join('') : '<p style="color:#555;">No transfers disclosed.</p>'}
     </div>
 
-    <!-- SECTION 8: CERTIFICATION -->
-    <div class="page page-break">
-      <div class="stamp" style="margin-bottom:20px;">Section 8 of 9 — Certification</div>
+
+    <!-- CERTIFICATION -->
+    <div class="force-break">
+      <div class="sec-head">Section 8 — Certification</div>
       <p>I certify, under penalty of perjury, that the information provided in this application is true, accurate, and complete to the best of my knowledge and belief. I understand that Medicaid eligibility is conditioned upon accurate and complete disclosure of all financial information, and that providing false or misleading information may result in denial, termination, or recovery of benefits, and may subject me to civil or criminal penalties.</p>
       <p>I authorize the release of any information necessary to determine eligibility for Medicaid benefits, including financial and medical records, to the appropriate state agency.</p>
       <p>I understand that if I am approved for Medicaid, the state may recover costs from my estate after my death (estate recovery), and I have been informed of this right.</p>
@@ -843,9 +879,10 @@
       </div>
     </div>
 
-    <!-- SECTION 9: DOCUMENT INDEX -->
-    <div class="page page-break">
-      <div class="stamp" style="margin-bottom:20px;">Section 9 of 9 — Document Index</div>
+
+    <!-- DOCUMENT INDEX -->
+    <div class="force-break">
+      <div class="sec-head">Section 9 — Document Index</div>
       <p style="font-size:0.85rem;color:#555;margin-bottom:16px;">The following documents are enclosed with this application (${docs.length} total).</p>
       <table>
         <tr><th>#</th><th>Document</th><th>File name</th><th>Uploaded</th></tr>
