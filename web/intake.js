@@ -481,32 +481,53 @@
       <option value="applicant" ${a.owner==='applicant'?'selected':''}>Applicant</option>
       ${APP.marital_status==='married'?`<option value="spouse" ${a.owner==='spouse'?'selected':''}>Spouse</option><option value="joint" ${a.owner==='joint'?'selected':''}>Joint</option>`:''}`;
     return `
-      <div class="card" style="margin-bottom:12px;padding:20px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <strong style="font-size:0.9rem;">Asset ${i+1}</strong>
+      <div class="card" style="margin-bottom:16px;padding:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <strong style="font-size:1rem;">Asset ${i+1}</strong>
           <button class="btn btn-danger btn-sm" onclick="removeAsset('${a._id}')">Remove</button>
         </div>
-        <div class="field-row col2">
-          <div class="field"><label class="label">Asset type ${window.tip&&tip("asset_type")||""}</label>
+
+        <div class="field-row col2" style="margin-bottom:0;">
+          <div class="field">
+            <label class="label">Asset type ${window.tip&&tip("asset_type")||""}</label>
             <select id="ast_type_${a._id}" onchange="updateAssetField('${a._id}','asset_type',this.value)">${typeOpts}</select>
           </div>
-          <div class="field"><label class="label">Owner ${window.tip&&tip("asset_owner")||""}</label>
+          <div class="field">
+            <label class="label">Owner ${window.tip&&tip("asset_owner")||""}</label>
             <select id="ast_own_${a._id}" onchange="updateAssetField('${a._id}','owner',this.value)">${ownerOpts}</select>
           </div>
         </div>
-        <div class="field-row col3">
-          <div class="field"><label class="label">Institution / description ${window.tip&&tip("asset_institution")||""}</label><input type="text" id="ast_inst_${a._id}" value="${esc(a.institution||a.description||'')}" oninput="updateAssetField('${a._id}','institution',this.value)"></div>
-          <div class="field"><label class="label">Account last 4 (optional) ${window.tip&&tip("asset_account_last4")||""}</label><input type="text" id="ast_acct_${a._id}" maxlength="4" value="${esc(a.account_last4||'')}" oninput="updateAssetField('${a._id}','account_last4',this.value)"></div>
-          <div class="field"><label class="label">Current value <span class="req">*</span> ${window.tip&&tip("asset_value")||""}</label><input type="number" id="ast_val_${a._id}" min="0" step="0.01" value="${a.value||''}" oninput="updateAssetField('${a._id}','value',this.value);refreshAssetTotal()"></div>
+
+        <div class="field-row col2" style="margin-bottom:0;">
+          <div class="field">
+            <label class="label">Bank or institution ${window.tip&&tip("asset_institution")||""}</label>
+            <input type="text" id="ast_inst_${a._id}" value="${esc(a.institution||a.description||'')}" oninput="updateAssetField('${a._id}','institution',this.value)" placeholder="e.g. First National Bank">
+          </div>
+          <div class="field">
+            <label class="label">Account last 4 digits ${window.tip&&tip("asset_account_last4")||""}</label>
+            <input type="text" id="ast_acct_${a._id}" maxlength="4" value="${esc(a.account_last4||'')}" oninput="updateAssetField('${a._id}','account_last4',this.value)" placeholder="e.g. 3821">
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap;">
-          <input type="checkbox" id="ast_ex_${a._id}" ${a.is_exempt?'checked':''} onchange="updateAssetField('${a._id}','is_exempt',this.checked)" style="width:20px;height:20px;accent-color:var(--navy);">
-          <label for="ast_ex_${a._id}" style="font-size:0.95rem;">Mark as exempt (does not count toward asset limit) ${window.tip&&tip("asset_is_exempt")||""}</label>
-          <input type="text" id="ast_exr_${a._id}" placeholder="Reason (e.g. primary residence)" value="${esc(a.exempt_reason||'')}" oninput="updateAssetField('${a._id}','exempt_reason',this.value)" style="flex:1;font-size:0.85rem;padding:6px 10px;">
+
+        <div class="field">
+          <label class="label">Current value ${window.tip&&tip("asset_value")||""}</label>
+          <input type="number" id="ast_val_${a._id}" min="0" step="0.01" value="${a.value||''}" oninput="updateAssetField('${a._id}','value',this.value);refreshAssetTotal()" placeholder="0.00" style="max-width:240px;">
+        </div>
+
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:#f8f9fa;border-radius:8px;margin-top:4px;">
+          <input type="checkbox" id="ast_ex_${a._id}" ${a.is_exempt?'checked':''} onchange="updateAssetField('${a._id}','is_exempt',this.checked)" style="width:22px;height:22px;accent-color:var(--navy);flex-shrink:0;margin-top:2px;">
+          <div style="flex:1;">
+            <label for="ast_ex_${a._id}" style="font-size:1rem;font-weight:600;cursor:pointer;">
+              This asset is exempt ${window.tip&&tip("asset_is_exempt")||""}
+            </label>
+            <div style="font-size:0.85rem;color:var(--ink-faint);margin-top:3px;">Does not count toward the Medicaid asset limit</div>
+            <input type="text" id="ast_exr_${a._id}" placeholder="Reason — e.g. primary residence, one vehicle" value="${esc(a.exempt_reason||'')}" oninput="updateAssetField('${a._id}','exempt_reason',this.value)" style="margin-top:10px;font-size:0.9rem;">
+          </div>
         </div>
       </div>`;
   }
 
+  
   function renderStep4() {
     const st = APP.state ? getStateData(APP.state) : null;
     return `
