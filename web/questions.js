@@ -1109,9 +1109,16 @@
       border-radius: 12px;
       padding: 36px 36px 28px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-      min-height: 300px;
+      min-height: 420px;
+      height: 420px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
     }
-    @media (max-width: 600px) { .q-card { padding: 24px 18px; } }
+    .q-input-wrap { margin-top: auto; padding-top: 24px; }
+    @media (max-width: 600px) {
+      .q-card { padding: 24px 18px; height: auto; min-height: 380px; }
+    }
 
     .q-text {
       font-size: 1.55rem;
