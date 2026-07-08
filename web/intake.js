@@ -374,11 +374,11 @@
   /* ------------------------------------------------------------------------
      STEP 2 — Medical / ADLs
   ------------------------------------------------------------------------ */
-  function adlRow(prefix, field, label, val) {
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
-      <span style="font-size:0.9rem;">${esc(label)}</span>
-      <select id="${prefix}_adl_${field}" style="width:200px;">
-        <option value="">—</option>
+  function adlRow(prefix, field, label, val, tipKey) {
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border);gap:16px;">
+      <span style="font-size:1rem;font-weight:600;flex:1;">${esc(label)} ${window.tip&&tipKey?tip(tipKey):''}</span>
+      <select id="${prefix}_adl_${field}" style="width:230px;font-size:1rem;padding:9px 12px;">
+        <option value="">Not answered</option>
         ${ADL_OPTIONS.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
       </select>
     </div>`;
@@ -397,12 +397,12 @@
       <div class="field"><label class="label">Primary diagnosis ${window.tip&&tip("m_diag")||""}</label><input type="text" id="m_diag" value="${esc(p.primary_diagnosis||'')}" placeholder="e.g. Alzheimer's disease, stroke, hip fracture"></div>
       <div style="margin-top:20px;margin-bottom:8px;font-weight:700;">Activities of Daily Living (ADLs) ${window.tip&&tip("adl")||""}</div>
       <div class="alert alert-info" style="margin-bottom:12px;">Rate each activity. Nursing facility level of care typically requires assistance with 2 or more.</div>
-      ${adlRow('m','bathing','Bathing',p.adl_bathing)}
-      ${adlRow('m','dressing','Dressing',p.adl_dressing)}
-      ${adlRow('m','eating','Eating',p.adl_eating)}
-      ${adlRow('m','transferring','Transferring (bed to chair, etc.)',p.adl_transferring)}
-      ${adlRow('m','toileting','Toileting',p.adl_toileting)}
-      ${adlRow('m','continence','Continence',p.adl_continence)}
+      ${adlRow('m','bathing','Bathing',p.adl_bathing,'adl_bathing')}
+      ${adlRow('m','dressing','Dressing',p.adl_dressing,'adl_dressing')}
+      ${adlRow('m','eating','Eating',p.adl_eating,'adl_eating')}
+      ${adlRow('m','transferring','Transferring (bed to chair, etc.)',p.adl_transferring,'adl_transferring')}
+      ${adlRow('m','toileting','Toileting',p.adl_toileting,'adl_toileting')}
+      ${adlRow('m','continence','Continence',p.adl_continence,'adl_continence')}
       <div id="s2msg" style="display:none;margin-top:12px;"></div>`;
   }
 
@@ -436,8 +436,8 @@
       <p class="text-faint text-sm" style="margin-bottom:16px;">The community spouse (the one not in the nursing home) is entitled to keep assets up to the Community Spouse Resource Allowance and a monthly income allowance.</p>
       <div class="alert alert-info" style="margin-bottom:20px;">
         For <strong>${APP.state ? esc(getStateData(APP.state)?.name||APP.state) : 'your state'}</strong>: 
-        CSRA up to <strong>$${(getStateData(APP.state)?.csra||162660).toLocaleString()}</strong> &nbsp;·&nbsp; 
-        Monthly Maintenance Needs Allowance up to <strong>$${(getStateData(APP.state)?.mmmna||4066.50).toLocaleString()}/mo</strong>
+        CSRA up to <strong>$${(getStateData(APP.state)?.csra||162660).toLocaleString()}</strong> ${window.tip&&tip("csra")||""} &nbsp;·&nbsp; 
+        Monthly Maintenance Needs Allowance up to <strong>$${(getStateData(APP.state)?.mmmna||4066.50).toLocaleString()}/mo</strong> ${window.tip&&tip("mmmna")||""}
       </div>
       ${personFields('sp', SPOU, 'Spouse')}
       <div id="s3msg" style="display:none;"></div>`;
@@ -499,9 +499,9 @@
           <div class="field"><label class="label">Account last 4 (optional) ${window.tip&&tip("asset_account_last4")||""}</label><input type="text" id="ast_acct_${a._id}" maxlength="4" value="${esc(a.account_last4||'')}" oninput="updateAssetField('${a._id}','account_last4',this.value)"></div>
           <div class="field"><label class="label">Current value <span class="req">*</span> ${window.tip&&tip("asset_value")||""}</label><input type="number" id="ast_val_${a._id}" min="0" step="0.01" value="${a.value||''}" oninput="updateAssetField('${a._id}','value',this.value);refreshAssetTotal()"></div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
-          <input type="checkbox" id="ast_ex_${a._id}" ${a.is_exempt?'checked':''} onchange="updateAssetField('${a._id}','is_exempt',this.checked)" style="width:18px;height:18px;accent-color:var(--navy);">
-          <label for="ast_ex_${a._id}" style="font-size:0.875rem;">Mark as exempt (does not count toward asset limit)</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap;">
+          <input type="checkbox" id="ast_ex_${a._id}" ${a.is_exempt?'checked':''} onchange="updateAssetField('${a._id}','is_exempt',this.checked)" style="width:20px;height:20px;accent-color:var(--navy);">
+          <label for="ast_ex_${a._id}" style="font-size:0.95rem;">Mark as exempt (does not count toward asset limit) ${window.tip&&tip("asset_is_exempt")||""}</label>
           <input type="text" id="ast_exr_${a._id}" placeholder="Reason (e.g. primary residence)" value="${esc(a.exempt_reason||'')}" oninput="updateAssetField('${a._id}','exempt_reason',this.value)" style="flex:1;font-size:0.85rem;padding:6px 10px;">
         </div>
       </div>`;
@@ -597,7 +597,7 @@
         <div class="field-row col3">
           <div class="field"><label class="label">Payer / source ${window.tip&&tip("income_payer")||""}</label><input type="text" id="inc_pay_${s._id}" value="${esc(s.payer||'')}" oninput="updateIncomeField('${s._id}','payer',this.value)" placeholder="e.g. Social Security Administration"></div>
           <div class="field"><label class="label">Amount ${window.tip&&tip("income_amount")||""}</label><input type="number" id="inc_amt_${s._id}" min="0" step="0.01" value="${s.amount||''}" oninput="updateIncomeField('${s._id}','amount',this.value);refreshIncomeTotal()"></div>
-          <div class="field"><label class="label">Frequency</label>
+          <div class="field"><label class="label">Frequency ${window.tip&&tip("income_frequency")||""}</label>
             <select id="inc_frq_${s._id}" onchange="updateIncomeField('${s._id}','frequency',this.value);refreshIncomeTotal()">${freqOpts}</select>
           </div>
         </div>
@@ -692,7 +692,7 @@
           <label style="display:flex;align-items:center;gap:8px;font-size:0.875rem;"><input type="checkbox" id="tr_ca_${t._id}" ${t.has_care_agreement?'checked':''} onchange="updateTransferField('${t._id}','has_care_agreement',this.checked)" style="accent-color:var(--navy);width:16px;height:16px;"> Has a written care agreement</label>
           <label style="display:flex;align-items:center;gap:8px;font-size:0.875rem;"><input type="checkbox" id="tr_ret_${t._id}" ${t.was_returned?'checked':''} onchange="updateTransferField('${t._id}','was_returned',this.checked)" style="accent-color:var(--navy);width:16px;height:16px;"> Asset has been fully returned</label>
         </div>
-        <div class="field" style="margin-top:12px;"><label class="label">Notes</label><textarea id="tr_notes_${t._id}" rows="2" style="font-size:0.875rem;" oninput="updateTransferField('${t._id}','notes',this.value)">${esc(t.notes||'')}</textarea></div>
+        <div class="field" style="margin-top:12px;"><label class="label">Notes ${window.tip&&tip("attorney_review")||""}</label><textarea id="tr_notes_${t._id}" rows="2" style="font-size:0.875rem;" oninput="updateTransferField('${t._id}','notes',this.value)">${esc(t.notes||'')}</textarea></div>
       </div>`;
   }
 
@@ -706,6 +706,7 @@
       <h2>5-year lookback — asset transfers</h2>
       <div class="alert alert-warn" style="margin-bottom:16px;">
         <strong>This section is mandatory.</strong> Medicaid reviews every transfer, gift, or below-market sale made in the ${st?.lookback||60} months before the application date. Failure to disclose transfers can result in denial. The IRS gift tax exemption ($19,000/recipient in 2026) has <strong>no bearing</strong> on Medicaid rules — every dollar given away within the lookback window is reviewable.
+        ${window.tip&&tip("transfer_intro")||""}
       </div>
       ${st && penDiv ? `<div class="alert alert-info" style="margin-bottom:16px;"><strong>${esc(st.name)}</strong> penalty divisor: <strong>${fmtMoney(penDiv)}/month</strong>${st.penaltyNote?' · '+esc(st.penaltyNote):''}</div>` : ''}
       ${totalUV > 0 ? `<div class="alert alert-error" style="margin-bottom:16px;">

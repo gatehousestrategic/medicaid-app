@@ -167,6 +167,19 @@
     transfer_returned:
       "If the money or property has been fully returned to the applicant, check this box. Returning a gift can eliminate or reduce the penalty period in most states.",
 
+    // --- Missing fields ---
+    asset_is_exempt:
+      "Some assets are protected and don't count toward the Medicaid limit. The most common exempt assets are: the primary home (if your spouse still lives there), one vehicle, household belongings, and prepaid burial funds. Check this box if this asset should be protected, and briefly explain why.",
+
+    income_frequency:
+      "How often you receive this payment. Most Social Security and pension checks arrive once a month. If yours comes weekly or every two weeks, just select that — we'll automatically convert it to a monthly amount for the eligibility calculation.",
+
+    sp_first:
+      "This is the spouse who stays at home while their husband or wife is in the nursing home. Medicaid has special protections for the community spouse so they don't lose everything. Once we have their information, we'll calculate exactly how much they're allowed to keep.",
+
+    level_of_care_documented:
+      "To qualify for nursing home Medicaid, a doctor has to confirm in writing that your loved one needs the level of care provided by a nursing home — things like help with bathing, eating, and getting in and out of bed. Check this box if a doctor or the facility has already documented this. If not, the facility's social worker can usually help arrange it.",
+
     // --- General ---
     penalty_divisor:
       "Each state has a 'penalty divisor' — the average monthly cost of a private nursing home stay in that state. Medicaid divides the total amount of uncompensated transfers by this number to calculate how many months the applicant must wait before Medicaid will pay. A $60,000 gift in a state with a $10,000/month divisor means a 6-month waiting period. This is why the lookback period is so important.",
@@ -208,16 +221,22 @@
     .tip-bubble {
       position: fixed;
       z-index: 9999;
-      max-width: 340px;
+      width: 340px;
+      max-width: calc(100vw - 32px);
       background: #fffef0;
       border: 2px solid #f0c040;
       border-radius: 12px;
       padding: 16px 18px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.22);
       font-size: 0.9rem;
       line-height: 1.6;
       color: #1b1b1b;
       font-family: 'Public Sans', sans-serif;
+      /* Always anchored bottom-right — never cut off */
+      bottom: 24px;
+      right: 24px;
+      top: auto;
+      left: auto;
     }
     .tip-bubble-close {
       float: right;
@@ -287,23 +306,8 @@
     document.body.appendChild(bubble);
     activeBubble = bubble;
 
-    // Position near the button
-    const rect = btn.getBoundingClientRect();
-    const bw = bubble.offsetWidth || 340;
-    const bh = bubble.offsetHeight || 160;
-    let left = rect.left + window.scrollX;
-    let top  = rect.bottom + window.scrollY + 8;
-
-    // Don't overflow right edge
-    if (left + bw > window.innerWidth - 16) left = window.innerWidth - bw - 16;
-    if (left < 8) left = 8;
-    // Don't overflow bottom — show above instead
-    if (top + bh > window.scrollY + window.innerHeight - 16) {
-      top = rect.top + window.scrollY - bh - 8;
-    }
-
-    bubble.style.left = left + 'px';
-    bubble.style.top  = top  + 'px';
+    // Position is handled entirely by CSS (fixed bottom-right)
+    // No JS positioning needed — always visible, never cut off
   }
 
   window.closeTip = closeBubble;

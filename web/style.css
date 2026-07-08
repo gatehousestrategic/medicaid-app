@@ -180,12 +180,13 @@ img { max-width: 100%; }
   gap: 8px;
   border: none;
   border-radius: var(--r-md);
-  padding: 12px 24px;
-  font-size: 1rem;
+  padding: 13px 26px;
+  font-size: 1.05rem;
   font-weight: 700;
   text-decoration: none;
   transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
   white-space: nowrap;
+  min-height: 48px; /* accessibility — minimum tap target */
 }
 .btn:active { transform: translateY(1px); }
 .btn-primary {
@@ -212,20 +213,24 @@ img { max-width: 100%; }
 /* --------------------------------------------------------------------------
    Forms
 -------------------------------------------------------------------------- */
-.field { margin-bottom: 20px; }
+.field { margin-bottom: 22px; }
 .field-row { display: grid; gap: 16px; }
 .field-row.col2 { grid-template-columns: 1fr 1fr; }
 .field-row.col3 { grid-template-columns: 1fr 1fr 1fr; }
-@media (max-width: 600px) {
-  .field-row.col2, .field-row.col3 { grid-template-columns: 1fr; }
+@media (max-width: 700px) {
+  .field-row.col3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .field-row.col2 { grid-template-columns: 1fr; }
 }
 
 label.label {
   display: block;
   font-weight: 700;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   color: var(--ink);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  line-height: 1.4;
 }
 label.label .req { color: #b50909; margin-left: 2px; }
 .hint { font-size: 0.825rem; color: var(--ink-faint); margin-top: 5px; }
@@ -240,14 +245,15 @@ select,
 textarea {
   width: 100%;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 1.05rem;
   color: var(--ink);
   background: var(--white);
   border: 2px solid #565c65;
   border-radius: var(--r-md);
-  padding: 10px 12px;
+  padding: 12px 14px;
   transition: border-color 0.15s, box-shadow 0.15s;
   appearance: none;
+  line-height: 1.4;
 }
 input:focus, select:focus, textarea:focus {
   outline: none;
@@ -304,9 +310,9 @@ input.error, select.error { border-color: #b50909; }
   display: flex;
   align-items: center;
   gap: 0;
-  margin-bottom: 32px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  margin-bottom: 28px;
+  overflow: hidden; /* no scroll */
+  flex-wrap: nowrap;
 }
 .step-item {
   display: flex;
@@ -314,11 +320,11 @@ input.error, select.error { border-color: #b50909; }
   flex-shrink: 0;
 }
 .step-dot {
-  width: 32px; height: 32px;
+  width: 30px; height: 30px;
   border-radius: 50%;
   background: var(--border);
   color: var(--ink-faint);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
@@ -327,21 +333,29 @@ input.error, select.error { border-color: #b50909; }
 .step-dot.done { background: var(--navy); color: #fff; }
 .step-dot.active { background: var(--navy); color: #fff; box-shadow: 0 0 0 4px rgba(26,68,128,0.2); }
 .step-label {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--ink-faint);
-  margin-left: 6px;
+  margin-left: 5px;
   white-space: nowrap;
+  overflow: hidden;
+  max-width: 80px;
+  text-overflow: ellipsis;
 }
 .step-label.active { color: var(--navy); }
 .step-connector {
   flex: 1;
-  min-width: 20px;
+  min-width: 8px;
   height: 2px;
   background: var(--border);
-  margin: 0 6px;
+  margin: 0 4px;
 }
 .step-connector.done { background: var(--navy); }
+/* On small screens, hide step labels entirely — just show dots */
+@media (max-width: 640px) {
+  .step-label { display: none; }
+  .step-dot { width: 26px; height: 26px; font-size: 0.72rem; }
+}
 
 /* --------------------------------------------------------------------------
    Progress bar
