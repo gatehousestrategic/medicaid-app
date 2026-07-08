@@ -1120,16 +1120,28 @@
   style.textContent = `
     .q-wrap {
       display: grid;
-      grid-template-columns: 1fr 300px;
+      grid-template-columns: 1fr 280px;
       gap: 24px;
       max-width: 1000px;
       margin: 0 auto;
       padding: 40px 20px 80px;
       align-items: start;
     }
+    .q-main { min-width: 0; width: 100%; }
+    .q-sidebar { width: 280px; flex-shrink: 0; }
+    .q-checklist-panel {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      position: sticky;
+      top: 20px;
+      min-height: 200px; /* always takes up space even when empty */
+    }
     @media (max-width: 720px) {
       .q-wrap { grid-template-columns: 1fr; }
-      .q-sidebar { order: -1; }
+      .q-sidebar { width: 100%; order: -1; }
+      .q-checklist-panel { min-height: auto; }
     }
 
     .q-progress-wrap { margin-bottom: 28px; }
@@ -1252,14 +1264,7 @@
       border-top: 1px solid var(--border);
     }
 
-    .q-checklist-panel {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 18px;
-      position: sticky;
-      top: 20px;
-    }
+
     .q-checklist-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
     .q-checklist-sub { font-size: 0.78rem; color: var(--ink-faint); margin-bottom: 14px; }
 
