@@ -1,0 +1,69 @@
+:root{
+  --paper:#F1F4EC; --card:#FCFCFA; --ink:#1E2A22; --ink-soft:#52614F; --ink-faint:#7C8A78;
+  --brand:#2F5D4E; --brand-dark:#1C3B30; --brand-pale:#E2EDE6;
+  --accent:#A8631E; --accent-pale:#F4E6D3;
+  --line:#CFD8C7;
+  --good-bg:#E7F0E1; --good-ink:#2B5B33;
+  --warn-bg:#FBF0DD; --warn-ink:#7A4E12;
+  --bad-bg:#F7E6DF; --bad-ink:#8C4324;
+  --shadow: 0 1px 2px rgba(30,42,34,0.06), 0 8px 24px -8px rgba(30,42,34,0.18);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans', system-ui, sans-serif;font-size:16px;line-height:1.5;}
+h1,h2,h3{font-family:'Source Serif 4', Georgia, serif;color:var(--brand-dark);margin:0 0 0.4em 0;font-weight:600;}
+a{color:var(--brand);}
+button{font-family:inherit;}
+
+.topbar{background:var(--brand-dark);color:#EFF5EE;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.brandmark{font-family:'Source Serif 4',serif;font-size:1.2rem;font-weight:700;color:#fff;text-decoration:none;}
+.brandmark .dot{color:var(--accent);}
+.topbar-right{display:flex;align-items:center;gap:14px;font-size:0.85rem;}
+.topbar-right a,.topbar-right button{color:#C6D8C9;background:none;border:1px solid #4C6B5B;border-radius:6px;padding:6px 12px;cursor:pointer;text-decoration:none;font-size:0.85rem;}
+.topbar-right a:hover,.topbar-right button:hover{background:#2A4B3D;}
+
+.wrap{max-width:880px;margin:0 auto;padding:36px 20px 80px;}
+.wrap.narrow{max-width:480px;}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:32px;}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+p{margin:0 0 14px 0;}
+.lede{color:var(--ink-soft);}
+
+.field{margin-bottom:18px;}
+label.flabel{display:block;font-weight:600;font-size:0.92rem;margin-bottom:6px;}
+input[type=text],input[type=email],input[type=password],input[type=date],input[type=number],select,textarea{
+  width:100%;font-size:1rem;padding:11px 12px;border:1px solid #B9C5B2;border-radius:7px;background:#fff;color:var(--ink);font-family:inherit;
+}
+.btn{border:none;border-radius:8px;padding:11px 20px;font-weight:600;font-size:0.95rem;cursor:pointer;}
+.btn-primary{background:var(--brand);color:#fff;}
+.btn-primary:hover{background:var(--brand-dark);}
+.btn-primary:disabled{background:#A9BCAF;cursor:not-allowed;}
+.btn-ghost{background:none;color:var(--ink-soft);border:1px solid var(--line);}
+.btn-ghost:hover{background:#EDF1E7;}
+.btn-danger{background:none;color:var(--bad-ink);border:1px solid #E0B6A4;}
+.btn-small{padding:6px 12px;font-size:0.82rem;border-radius:6px;}
+
+.note-box{border-radius:8px;padding:13px 15px;font-size:0.88rem;margin:14px 0;}
+.note-good{background:var(--good-bg);color:var(--good-ink);}
+.note-warn{background:var(--warn-bg);color:var(--warn-ink);}
+.note-bad{background:var(--bad-bg);color:var(--bad-ink);}
+.note-neutral{background:#EEF1E8;color:var(--ink-soft);}
+
+.app-card{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px 18px;margin-bottom:10px;flex-wrap:wrap;gap:10px;}
+.app-card .meta{font-size:0.82rem;color:var(--ink-faint);}
+.status-pill{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.05em;padding:3px 9px;border-radius:20px;}
+.status-draft{background:var(--warn-bg);color:var(--warn-ink);}
+.status-submitted{background:var(--brand-pale);color:var(--brand-dark);}
+.status-in_review{background:var(--accent-pale);color:#5C3B12;}
+.status-approved{background:var(--good-bg);color:var(--good-ink);}
+.status-denied{background:var(--bad-bg);color:var(--bad-ink);}
+
+table.staff-table{width:100%;border-collapse:collapse;background:#fff;border-radius:9px;overflow:hidden;border:1px solid var(--line);}
+table.staff-table th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);background:#EEF1E8;padding:10px 12px;}
+table.staff-table td{padding:10px 12px;border-top:1px solid #EEF1E8;font-size:0.9rem;}
+table.staff-table tr:hover td{background:#FAFBF8;}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--ink-faint);}
+.spinner-text{color:var(--ink-faint);font-size:0.9rem;}
+.error-text{color:var(--bad-ink);font-size:0.88rem;margin-top:8px;}
