@@ -2442,15 +2442,7 @@
               </div>
             </div>
           </div>
-          <div id="q-checklist-collapse" style="margin-top:12px;">
-            <button onclick="toggleChecklist()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:0.82rem;font-weight:600;color:var(--ink-soft);cursor:pointer;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;">
-              <span>📋 Your checklist</span>
-              <span id="cl-toggle-icon">▼</span>
-            </button>
-            <div id="checklistPanel" style="display:none;background:#fff;border:1px solid var(--border);border-radius:0 0 8px 8px;padding:14px;border-top:none;">
-              <div id="checklistItems">${renderChecklistItems()}</div>
-            </div>
-          </div>
+          <div id="q-checklist-collapse" style="display:none;"></div>
         </div>
       `, `Application — ${name()}`);
       _shellRendered = true;
@@ -2498,12 +2490,9 @@
   }
 
   function renderChecklist() {
+    // Checklist is accessible via the 🖨 and ⊞ nav buttons — not shown inline during questions
     const el = document.getElementById('checklistItems');
     if (el) el.innerHTML = renderChecklistItems();
-    // Update the checklist button to show pending count
-    const btn = document.querySelector('#q-checklist-collapse button span');
-    const missing = Object.values(CHECKLIST).filter(v=>v!=='done').length;
-    if (btn) btn.textContent = '📋 Your checklist' + (missing > 0 ? ' (' + missing + ' pending)' : ' ✅');
   }
 
   function renderComplete() {
@@ -2585,16 +2574,24 @@
   const style = document.createElement('style');
   style.textContent = `
     .q-wrap {
-      max-width: 700px;
+      width: 100%;
+      max-width: 660px;
       margin: 0 auto;
       padding: 40px 20px 80px;
-    }
-    .q-main { width: 100%; }
-    .q-card {
-      width: 100%;
       box-sizing: border-box;
     }
-    .q-sidebar { display: none; } /* checklist shown as collapsible panel below card instead */
+    .q-main {
+      width: 100%;
+      max-width: 660px;
+      box-sizing: border-box;
+    }
+    .q-card {
+      width: 100%;
+      max-width: 660px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .q-sidebar { display: none; }
     .q-checklist-panel {
       background: #fff;
       border: 1px solid var(--border);
@@ -2698,6 +2695,8 @@
       flex-direction: column;
       gap: 10px;
       margin-top: 4px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .q-choice {
@@ -2716,10 +2715,13 @@
       transition: border-color 0.15s, background 0.15s;
       font-family: inherit;
       min-height: 56px;
+      width: 100%;
+      box-sizing: border-box;
+      max-width: 100%;
     }
     .q-choice:hover { border-color: var(--navy); background: var(--navy-light); }
     .q-choice:active { transform: scale(0.99); }
-    .q-choice-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .q-choice-icon { font-size: 1.3rem; flex-shrink: 0; width: 28px; }
 
     .qbtn {
       border: none;
