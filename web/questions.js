@@ -2121,6 +2121,15 @@
       </div>`;
   }
 
+  window.toggleChecklist = function() {
+    const panel = document.getElementById('checklistPanel');
+    const icon  = document.getElementById('cl-toggle-icon');
+    if (!panel) return;
+    const open = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    if (icon) icon.textContent = open ? '▲' : '▼';
+  };
+
   window.qNextDocUpload = function() {
     const q = FLOW[qIndex];
     const status = q && q.docKey ? CHECKLIST[q.docKey] : null;
@@ -2433,10 +2442,12 @@
               </div>
             </div>
           </div>
-          <div class="q-sidebar">
-            <div class="q-checklist-panel">
-              <div class="q-checklist-title">📋 Your checklist</div>
-              <div class="q-checklist-sub">Updates as you answer questions</div>
+          <div id="q-checklist-collapse" style="margin-top:12px;">
+            <button onclick="toggleChecklist()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:0.82rem;font-weight:600;color:var(--ink-soft);cursor:pointer;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;">
+              <span>📋 Your checklist</span>
+              <span id="cl-toggle-icon">▼</span>
+            </button>
+            <div id="checklistPanel" style="display:none;background:#fff;border:1px solid var(--border);border-radius:0 0 8px 8px;padding:14px;border-top:none;">
               <div id="checklistItems">${renderChecklistItems()}</div>
             </div>
           </div>
@@ -2489,6 +2500,10 @@
   function renderChecklist() {
     const el = document.getElementById('checklistItems');
     if (el) el.innerHTML = renderChecklistItems();
+    // Update the checklist button to show pending count
+    const btn = document.querySelector('#q-checklist-collapse button span');
+    const missing = Object.values(CHECKLIST).filter(v=>v!=='done').length;
+    if (btn) btn.textContent = '📋 Your checklist' + (missing > 0 ? ' (' + missing + ' pending)' : ' ✅');
   }
 
   function renderComplete() {
@@ -2570,38 +2585,16 @@
   const style = document.createElement('style');
   style.textContent = `
     .q-wrap {
-      display: flex;
-      flex-direction: row;
-      gap: 24px;
-      max-width: 1000px;
+      max-width: 700px;
       margin: 0 auto;
       padding: 40px 20px 80px;
-      align-items: flex-start;
     }
-    .q-main {
-      flex: 0 0 660px;
-      width: 660px;
-      min-width: 0;
-      max-width: 660px;
-    }
+    .q-main { width: 100%; }
     .q-card {
-      width: 660px;
+      width: 100%;
       box-sizing: border-box;
-      flex-shrink: 0;
     }
-    .q-sidebar {
-      flex: 0 0 280px;
-      width: 280px;
-      min-width: 280px;
-      max-width: 280px;
-      overflow: hidden;
-    }
-    @media (max-width: 980px) {
-      .q-wrap { flex-direction: column; }
-      .q-main { flex: none; width: 100%; max-width: 100%; }
-      .q-card { width: 100%; }
-      .q-sidebar { flex: none; width: 100%; max-width: 100%; order: -1; }
-    }
+    .q-sidebar { display: none; } /* checklist shown as collapsible panel below card instead */
     .q-checklist-panel {
       background: #fff;
       border: 1px solid var(--border);
