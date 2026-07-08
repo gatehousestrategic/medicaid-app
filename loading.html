@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearCare — Medicaid Application Assistant</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;background:#ffffff;}
+  body{
+    font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:100vh;
+  }
+
+  .logo{
+    display:flex;align-items:center;gap:10px;margin-bottom:48px;
+  }
+  .logo-mark{
+    width:44px;height:44px;background:#1a4480;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .logo-mark svg{width:26px;height:26px;fill:#ffffff;}
+  .logo-name{
+    font-size:1.5rem;font-weight:700;color:#1a4480;letter-spacing:-0.02em;
+  }
+  .logo-name span{color:#00bde3;}
+
+  .loader-track{
+    width:280px;height:4px;background:#dfe1e2;border-radius:2px;overflow:hidden;
+    margin-bottom:20px;
+  }
+  .loader-bar{
+    height:100%;width:0%;background:#1a4480;border-radius:2px;
+    animation:load 2.4s cubic-bezier(0.4,0,0.2,1) forwards;
+  }
+  @keyframes load{
+    0%{width:0%;}
+    30%{width:45%;}
+    60%{width:72%;}
+    85%{width:88%;}
+    100%{width:100%;}
+  }
+
+  .loader-text{
+    font-size:0.875rem;color:#71767a;text-align:center;
+    animation:fadeText 2.4s ease forwards;
+  }
+  @keyframes fadeText{
+    0%{opacity:1;} 80%{opacity:1;} 100%{opacity:0;}
+  }
+
+  .tagline{
+    position:absolute;bottom:40px;
+    font-size:0.78rem;color:#a9aeb1;text-align:center;
+    letter-spacing:0.01em;
+  }
+</style>
+</head>
+<body>
+
+<div class="logo">
+  <div class="logo-mark">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+      <path d="M11 6h2v2h-2zm0 10h2v2h-2z" opacity="0"/>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+    </svg>
+  </div>
+  <div class="logo-name">Clear<span>Care</span></div>
+</div>
+
+<div class="loader-track">
+  <div class="loader-bar"></div>
+</div>
+<div class="loader-text">Loading your application assistant…</div>
+
+<div class="tagline">Medicaid Application Assistant &nbsp;·&nbsp; All 50 States</div>
+
+<script>
+  // Ping the real app to wake it up, then redirect when ready
+  const APP_URL = 'https://medicaid-app.onrender.com';
+  const TIMEOUT = 8000; // max wait before redirecting anyway
+
+  function redirectNow() {
+    window.location.href = APP_URL;
+  }
+
+  // After the animation completes (2.4s), try to redirect
+  // The loader bar animation itself signals "ready" to the user
+  setTimeout(function() {
+    // Try to fetch the app; redirect whether it responds or not
+    fetch(APP_URL, { mode: 'no-cors' })
+      .then(redirectNow)
+      .catch(redirectNow);
+  }, 2600);
+
+  // Hard fallback — always redirect after TIMEOUT
+  setTimeout(redirectNow, TIMEOUT);
+</script>
+
+</body>
+</html>
